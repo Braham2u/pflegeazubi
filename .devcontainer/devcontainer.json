@@ -1,0 +1,20 @@
+{
+  "name": "PflegeAzubi",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "forwardPorts": [8081],
+  "postCreateCommand": "npm install",
+  "postStartCommand": "npx expo start --web --port 8081",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  "features": {}
+}
