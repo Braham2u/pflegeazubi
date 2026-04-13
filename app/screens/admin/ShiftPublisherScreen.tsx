@@ -7,7 +7,7 @@ import { BRAND, SHIFT_COLORS } from '../../constants/colors';
 import { ShiftType } from '../../types';
 import {
   LOCATIONS, ADMIN_AZUBIS, publishPlan,
-  DayAssignment, AzubiPlan,
+  DayAssignment, AzubiPlan, CareLocation,
 } from '../../data/sharedPlanStore';
 
 const ADMIN_PURPLE = '#3C3489';
@@ -67,7 +67,7 @@ function initPlan(): Record<string, AzubiPlan> {
 }
 
 // Locations shown in step 2 of the modal, filtered by shift type
-function locationsFor(st: ShiftType): Location[] {
+function locationsFor(st: ShiftType): CareLocation[] {
   if (st === 'school') return LOCATIONS.filter(l => l.isSchool);
   return LOCATIONS.filter(l => !l.isSchool);
 }

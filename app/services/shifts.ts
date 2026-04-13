@@ -10,6 +10,7 @@ import { db } from './firebase';
 import { Shift } from '../types';
 
 export async function getShiftsForWeek(azubiId: string, weekStart: string): Promise<Shift[]> {
+  if (!db) return [];
   const end = new Date(weekStart);
   end.setDate(end.getDate() + 6);
   const weekEnd = end.toISOString().split('T')[0];
@@ -30,6 +31,7 @@ export async function getShiftsForWeek(azubiId: string, weekStart: string): Prom
 }
 
 export async function createShift(shift: Omit<Shift, 'id'>): Promise<string> {
+  if (!db) throw new Error('Firebase not configured');
   const ref = await addDoc(collection(db, 'shifts'), shift);
   return ref.id;
 }

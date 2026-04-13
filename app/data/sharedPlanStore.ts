@@ -8,7 +8,7 @@ import { ShiftType, Shift } from '../types';
 
 // ─── Shared location data ────────────────────────────────────────────────────
 
-export interface Location {
+export interface CareLocation {
   id: string;
   facility: string;
   unit: string;
@@ -17,7 +17,7 @@ export interface Location {
   isSchool?: boolean;
 }
 
-export const LOCATIONS: Location[] = [
+export const LOCATIONS: CareLocation[] = [
   { id: 'loc1', facility: 'Caritas St. Konrad', unit: 'Wohnbereich 2',       icon: '🏠', short: 'CSK · WB2' },
   { id: 'loc2', facility: 'Caritas St. Konrad', unit: 'Demenzstation',        icon: '🏥', short: 'CSK · Demenz' },
   { id: 'loc3', facility: 'AWO Sonnenhof',       unit: 'Pflegestation 1',     icon: '🏡', short: 'AWO' },
@@ -66,7 +66,7 @@ export function publishPlan(plan: Record<string, AzubiPlan>): void {
 // ─── Helpers for ShiftPlanScreen ─────────────────────────────────────────────
 
 function assignmentToShift(azubiId: string, iso: string, a: DayAssignment): Shift {
-  const loc = LOCATIONS.find(l => l.id === a.locationId);
+  const loc: CareLocation | undefined = LOCATIONS.find(l => l.id === a.locationId);
   return {
     id: `plan-${azubiId}-${iso}`,
     azubiId,
