@@ -77,6 +77,4 @@ Claude Code can be given a well-defined task (e.g. "build the AvailabilityScreen
 | **Extensibility** | Clean separation of services, screens, types, and context; i18n system makes adding Arabic/Tagalog/Hindi straightforward; production stack (Supabase + Railway) documented in brief |
 | **Traceability** | Every feature maps to a numbered step in the build order; AI session context restored via brief at session start; git history shows incremental feature delivery |
 
----
 
-*PflegeAzubi Project Brief v1.0 — April 2026 — Abraham T. Borbor Jr. — THD ECRI Pfarrkirchen*
