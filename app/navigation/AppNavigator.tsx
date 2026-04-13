@@ -17,65 +17,84 @@ import { BRAND } from '../constants/colors';
 
 const ADMIN_PURPLE = '#3C3489';
 
-// Separate navigator instances — sharing one causes screen-name collisions
 const AzubiTab = createBottomTabNavigator();
 const AdminTab = createBottomTabNavigator();
+
+// Renders as a real component so it subscribes to LanguageContext itself.
+// This is the key fix: React Navigation caches static `options={{ title }}`,
+// but a component rendered inside tabBarLabel always re-renders when context changes.
+function TabLabel({ name, color }: { name: string; color: string }) {
+  const { t } = useLang();
+  const labels: Record<string, string> = {
+    shiftPlan:      t.tabs.shiftPlan,
+    workingTime:    t.tabs.workingTime,
+    availability:   t.tabs.availability,
+    profile:        t.tabs.profile,
+    adminDashboard: t.tabs.adminDashboard,
+    shiftPublisher: t.tabs.shiftPublisher,
+    adminWishes:    t.tabs.adminWishes,
+    trainees:       t.tabs.trainees,
+    adminProfile:   t.tabs.profile,
+  };
+  return (
+    <Text style={{ color, fontSize: 11, fontWeight: '600' }}>
+      {labels[name] ?? name}
+    </Text>
+  );
+}
+
+const AZUBI_ICONS: Record<string, string> = {
+  shiftPlan: '📅', workingTime: '⏱', availability: '✋', profile: '👤',
+};
+const ADMIN_ICONS: Record<string, string> = {
+  adminDashboard: '📊', shiftPublisher: '📋', adminWishes: '✋', trainees: '👥', adminProfile: '👤',
+};
 
 function AdminTabs() {
   return (
     <AdminTab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }) => {
-          const icons: Record<string, string> = {
-            adminDashboard: '📊',
-            shiftPublisher: '📋',
-            adminWishes: '✋',
-            trainees: '👥',
-            adminProfile: '👤',
-          };
-          return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{icons[route.name]}</Text>;
-        },
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>
+            {ADMIN_ICONS[route.name]}
+          </Text>
+        ),
+        tabBarLabel: ({ color }) => <TabLabel name={route.name} color={color} />,
         tabBarActiveTintColor: ADMIN_PURPLE,
         tabBarInactiveTintColor: BRAND.textSecondary,
         tabBarStyle: { borderTopColor: BRAND.border, backgroundColor: BRAND.surface },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       })}
     >
-      <AdminTab.Screen name="adminDashboard" component={DashboardScreen} options={{ title: 'Dashboard' }} />
-      <AdminTab.Screen name="shiftPublisher" component={ShiftPublisherScreen} options={{ title: 'Dienstplan' }} />
-      <AdminTab.Screen name="adminWishes" component={WishesScreen} options={{ title: 'Wünsche' }} />
-      <AdminTab.Screen name="trainees" component={TraineeListScreen} options={{ title: 'Azubis' }} />
-      <AdminTab.Screen name="adminProfile" component={AccountScreen} options={{ title: 'Profil' }} />
+      <AdminTab.Screen name="adminDashboard" component={DashboardScreen} />
+      <AdminTab.Screen name="shiftPublisher" component={ShiftPublisherScreen} />
+      <AdminTab.Screen name="adminWishes"    component={WishesScreen} />
+      <AdminTab.Screen name="trainees"       component={TraineeListScreen} />
+      <AdminTab.Screen name="adminProfile"   component={AccountScreen} />
     </AdminTab.Navigator>
   );
 }
 
 function MainTabs() {
-  const { t } = useLang();
   return (
     <AzubiTab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }) => {
-          const icons: Record<string, string> = {
-            shiftPlan: '📅',
-            workingTime: '⏱',
-            availability: '✋',
-            profile: '👤',
-          };
-          return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{icons[route.name]}</Text>;
-        },
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>
+            {AZUBI_ICONS[route.name]}
+          </Text>
+        ),
+        tabBarLabel: ({ color }) => <TabLabel name={route.name} color={color} />,
         tabBarActiveTintColor: BRAND.primary,
         tabBarInactiveTintColor: BRAND.textSecondary,
         tabBarStyle: { borderTopColor: BRAND.border, backgroundColor: BRAND.surface },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       })}
     >
-      <AzubiTab.Screen name="shiftPlan" component={ShiftPlanScreen} options={{ title: t.tabs.shiftPlan }} />
-      <AzubiTab.Screen name="workingTime" component={WorkingTimeScreen} options={{ title: t.tabs.workingTime }} />
-      <AzubiTab.Screen name="availability" component={AvailabilityScreen} options={{ title: t.tabs.availability }} />
-      <AzubiTab.Screen name="profile" component={AccountScreen} options={{ title: t.tabs.profile }} />
+      <AzubiTab.Screen name="shiftPlan"   component={ShiftPlanScreen} />
+      <AzubiTab.Screen name="workingTime" component={WorkingTimeScreen} />
+      <AzubiTab.Screen name="availability" component={AvailabilityScreen} />
+      <AzubiTab.Screen name="profile"     component={AccountScreen} />
     </AzubiTab.Navigator>
   );
 }
@@ -91,8 +110,6 @@ export default function AppNavigator() {
     );
   }
 
-  // key forces a full NavigationContainer remount when role changes,
-  // preventing stale screen-name state from a previous session
   const navKey = userProfile?.role ?? 'login';
 
   return (

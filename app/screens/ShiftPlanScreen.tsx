@@ -13,6 +13,7 @@ import ShiftCard from '../components/ShiftCard';
 import WeekBanner from '../components/WeekBanner';
 import { BRAND, SHIFT_COLORS } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { getShiftsForWeek, hasPlan } from '../data/sharedPlanStore';
 const DUMMY_SHIFTS: Shift[] = [
   { id: '1', azubiId: 'demo', date: '', shiftType: 'early', startTime: '06:00', endTime: '14:00', breakMinutes: 30, facilityId: 'fac1', facilityName: 'Caritas St. Konrad', unitId: 'u1', unitName: 'Wohnbereich 2', supervisor: 'Fr. Maier', notes: 'Ausbildungsnachweis mitbringen' },
@@ -24,8 +25,7 @@ const DUMMY_SHIFTS: Shift[] = [
   { id: '7', azubiId: 'demo', date: '', shiftType: 'free', startTime: '', endTime: '', breakMinutes: 0, facilityId: null, facilityName: '', unitId: null, unitName: null, supervisor: null, notes: null },
 ];
 
-const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-const DAY_NAMES_FULL = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+// Day names are now sourced from useLang() inside the component
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -69,6 +69,9 @@ export default function ShiftPlanScreen() {
   const [weekStart, setWeekStart] = useState(getMonday(today));
   const [selected, setSelected] = useState<Shift | null>(null);
   const { userProfile } = useAuth();
+  const { t } = useLang();
+  const DAY_NAMES = t.days.short;
+  const DAY_NAMES_FULL = t.days.long;
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -98,13 +101,13 @@ export default function ShiftPlanScreen() {
         {/* Week navigation */}
         <View style={styles.navRow}>
           <TouchableOpacity style={styles.navBtn} onPress={() => setWeekStart(addDays(weekStart, -7))}>
-            <Text style={styles.navText}>‹ Vorwoche</Text>
+            <Text style={styles.navText}>{t.shiftPlan.prevWeek}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={() => setWeekStart(getMonday(new Date()))}>
-            <Text style={[styles.navText, { color: BRAND.primary }]}>Heute</Text>
+            <Text style={[styles.navText, { color: BRAND.primary }]}>{t.shiftPlan.today}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={() => setWeekStart(addDays(weekStart, 7))}>
-            <Text style={styles.navText}>Nächste ›</Text>
+            <Text style={styles.navText}>{t.shiftPlan.nextWeek}</Text>
           </TouchableOpacity>
         </View>
 

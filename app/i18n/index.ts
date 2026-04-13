@@ -6,6 +6,10 @@ const de = {
     workingTime: 'Arbeitszeit',
     availability: 'Wunschbuch',
     profile: 'Profil',
+    adminDashboard: 'Dashboard',
+    shiftPublisher: 'Dienstplan',
+    adminWishes: 'Wünsche',
+    trainees: 'Azubis',
   },
   login: {
     tagline: 'Dein Dienstplan. Immer dabei.',
@@ -84,6 +88,10 @@ const en: typeof de = {
     workingTime: 'Working Time',
     availability: 'Availability',
     profile: 'Profile',
+    adminDashboard: 'Dashboard',
+    shiftPublisher: 'Schedule',
+    adminWishes: 'Wishes',
+    trainees: 'Trainees',
   },
   login: {
     tagline: 'Your schedule. Always with you.',
