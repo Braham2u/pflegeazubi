@@ -9,6 +9,9 @@ export const SHIFT_COLORS: Record<ShiftType, { background: string; text: string;
   external: { background: '#E8F4FD', text: '#1E5C8B', label: 'Extern' },
 };
 
+export const ADMIN_PURPLE = '#3C3489';
+export const ADMIN_PURPLE_LIGHT = '#EEEDFE';
+
 export const BRAND = {
   primary: '#085041',
   primaryLight: '#E1F5EE',

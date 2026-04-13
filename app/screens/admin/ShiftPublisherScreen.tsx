@@ -3,14 +3,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BRAND, SHIFT_COLORS } from '../../constants/colors';
+import { BRAND, SHIFT_COLORS, ADMIN_PURPLE } from '../../constants/colors';
 import { ShiftType } from '../../types';
 import {
   LOCATIONS, ADMIN_AZUBIS, publishPlan,
   DayAssignment, AzubiPlan, CareLocation,
 } from '../../data/sharedPlanStore';
-
-const ADMIN_PURPLE = '#3C3489';
 
 // Default location when a shift type is first selected
 const DEFAULT_LOCATION: Record<ShiftType, string> = {

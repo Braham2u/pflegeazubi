@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BRAND } from '../../constants/colors';
-
-const ADMIN_PURPLE = '#3C3489';
-const ADMIN_PURPLE_LIGHT = '#EEEDFE';
+import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
 
 interface Azubi {
   id: string;
@@ -18,15 +15,15 @@ interface Azubi {
 
 const AZUBIS: Azubi[] = [
   {
-    id: 'a1', name: 'Abraham T. Borbor Jr.', email: 'abraham@pflegeazubi.de',
+    id: 'demo-a1', name: 'Abraham T. Borbor Jr.', email: 'abraham@pflegeazubi.de',
     year: 2, contractedHours: 40, facility: 'Seniorenheim Sonnenhof', startDate: '01.09.2024',
   },
   {
-    id: 'a2', name: 'Fatima Al-Hassan', email: 'fatima@pflegeazubi.de',
+    id: 'demo-a2', name: 'Fatima Al-Hassan', email: 'fatima@pflegeazubi.de',
     year: 1, contractedHours: 38, facility: 'Seniorenheim Sonnenhof', startDate: '01.09.2025',
   },
   {
-    id: 'a3', name: 'Jana Müller', email: 'jana@pflegeazubi.de',
+    id: 'demo-a3', name: 'Jana Müller', email: 'jana@pflegeazubi.de',
     year: 3, contractedHours: 40, facility: 'Seniorenheim Sonnenhof', startDate: '01.09.2023',
   },
 ];

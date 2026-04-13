@@ -7,10 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { loginWithEmail } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
-import { BRAND } from '../constants/colors';
+import { BRAND, ADMIN_PURPLE } from '../constants/colors';
 import { DEMO_ACCOUNTS } from '../data/demoAccounts';
-
-const ADMIN_PURPLE = '#3C3489';
 
 export default function LoginScreen() {
   const { t, lang, setLang } = useLang();

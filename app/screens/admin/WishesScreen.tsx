@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BRAND } from '../../constants/colors';
-
-const ADMIN_PURPLE = '#3C3489';
+import { BRAND, ADMIN_PURPLE } from '../../constants/colors';
 
 type WishStatus = 'pending' | 'approved' | 'rejected';
 

@@ -1,11 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BRAND } from '../../constants/colors';
+import { BRAND, ADMIN_PURPLE } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
-
-const ADMIN_PURPLE = '#3C3489';
-const ADMIN_PURPLE_LIGHT = '#EEEDFE';
 
 const METRICS = [
   { label: 'Azubis aktiv', value: '3', icon: '👥' },

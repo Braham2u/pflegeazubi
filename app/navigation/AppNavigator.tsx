@@ -13,9 +13,7 @@ import DashboardScreen from '../screens/admin/DashboardScreen';
 import ShiftPublisherScreen from '../screens/admin/ShiftPublisherScreen';
 import WishesScreen from '../screens/admin/WishesScreen';
 import TraineeListScreen from '../screens/admin/TraineeListScreen';
-import { BRAND } from '../constants/colors';
-
-const ADMIN_PURPLE = '#3C3489';
+import { BRAND, ADMIN_PURPLE } from '../constants/colors';
 
 const AzubiTab = createBottomTabNavigator();
 const AdminTab = createBottomTabNavigator();

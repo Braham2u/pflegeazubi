@@ -27,26 +27,6 @@ export interface Shift {
   notes: string | null;
 }
 
-export interface Facility {
-  id: string;
-  tragerId: string;
-  tragerName: string;
-  name: string;
-  address: string;
-  units: Unit[];
-}
-
-export interface Unit {
-  id: string;
-  facilityId: string;
-  name: string;
-}
-
-export interface Trager {
-  id: string;
-  name: string;
-}
-
 export interface AvailabilityWish {
   id: string;
   azubiId: string;
@@ -56,13 +36,3 @@ export interface AvailabilityWish {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-export interface Rotation {
-  id: string;
-  azubiId: string;
-  facilityId: string | null;
-  facilityName: string;
-  unitName: string | null;
-  rotationType: 'stationaere_pflege' | 'ambulante_pflege' | 'krankenhaus' | 'paediatrie' | 'external';
-  startDate: string;
-  endDate: string;
-}

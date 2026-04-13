@@ -94,7 +94,7 @@ export default function ShiftPlanScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Dienstplan</Text>
+          <Text style={styles.title}>{t.shiftPlan.title}</Text>
           <Text style={styles.subtitle}>KW {getKW(weekStart)} · {formatDate(weekStart)} – {formatDate(addDays(weekStart, 6))}</Text>
         </View>
 
@@ -130,7 +130,7 @@ export default function ShiftPlanScreen() {
                   <ShiftCard shift={shift} onPress={setSelected} />
                 ) : (
                   <View style={styles.emptyCard}>
-                    <Text style={styles.emptyText}>Kein Dienst</Text>
+                    <Text style={styles.emptyText}>{t.shiftPlan.noShift}</Text>
                   </View>
                 )}
               </View>
@@ -155,15 +155,15 @@ export default function ShiftPlanScreen() {
                 </Text>
               </View>
               {selected.startTime ? (
-                <DetailRow label="Zeit" value={`${selected.startTime} – ${selected.endTime}`} />
+                <DetailRow label={t.shiftPlan.time} value={`${selected.startTime} – ${selected.endTime}`} />
               ) : null}
               {selected.breakMinutes > 0 ? (
-                <DetailRow label="Pause" value={`${selected.breakMinutes} min`} />
+                <DetailRow label={t.shiftPlan.pause} value={`${selected.breakMinutes} ${t.shiftPlan.min}`} />
               ) : null}
-              <DetailRow label="Einrichtung" value={selected.facilityName} />
-              {selected.unitName ? <DetailRow label="Bereich" value={selected.unitName} /> : null}
-              {selected.supervisor ? <DetailRow label="Praxisanleiter" value={selected.supervisor} /> : null}
-              {selected.notes ? <DetailRow label="Hinweis" value={selected.notes} /> : null}
+              <DetailRow label={t.shiftPlan.facility} value={selected.facilityName} />
+              {selected.unitName ? <DetailRow label={t.shiftPlan.unit} value={selected.unitName} /> : null}
+              {selected.supervisor ? <DetailRow label={t.shiftPlan.supervisor} value={selected.supervisor} /> : null}
+              {selected.notes ? <DetailRow label={t.shiftPlan.note} value={selected.notes} /> : null}
             </View>
           )}
         </TouchableOpacity>
