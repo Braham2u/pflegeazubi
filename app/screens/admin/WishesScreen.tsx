@@ -1,31 +1,42 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, ADMIN_PURPLE } from '../../constants/colors';
-
-type WishStatus = 'pending' | 'approved' | 'rejected';
-
-interface Wish {
-  id: string;
-  azubiName: string;
-  date: string;
-  type: 'free' | 'timeframe';
-  timeframe?: string;
-  status: WishStatus;
-}
-
-const DUMMY_WISHES: Wish[] = [
-  { id: '1', azubiName: 'Abraham T. Borbor Jr.', date: '14.04.2026', type: 'free', status: 'pending' },
-  { id: '2', azubiName: 'Fatima Al-Hassan', date: '16.04.2026', type: 'timeframe', timeframe: '08:00 – 14:00', status: 'pending' },
-  { id: '3', azubiName: 'Jana Müller', date: '17.04.2026', type: 'free', status: 'pending' },
-  { id: '4', azubiName: 'Abraham T. Borbor Jr.', date: '21.04.2026', type: 'timeframe', timeframe: '06:00 – 13:00', status: 'pending' },
-];
+import { useAuth } from '../../context/AuthContext';
+import { getAllWishes, updateWishStatus } from '../../services/wishes';
+import { AvailabilityWish } from '../../types';
 
 export default function WishesScreen() {
-  const [wishes, setWishes] = useState<Wish[]>(DUMMY_WISHES);
+  const { userProfile } = useAuth();
+  const [wishes, setWishes] = useState<AvailabilityWish[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
 
-  function setStatus(id: string, status: WishStatus) {
-    setWishes(ws => ws.map(w => w.id === id ? { ...w, status } : w));
+  const loadWishes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getAllWishes();
+      setWishes(data);
+    } catch {
+      setWishes([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadWishes(); }, [loadWishes]);
+
+  async function handleStatus(id: string, status: 'approved' | 'rejected') {
+    if (!userProfile) return;
+    setUpdating(id);
+    try {
+      await updateWishStatus(id, status, userProfile.name);
+      setWishes(ws => ws.map(w => w.id === id ? { ...w, status } : w));
+    } catch {
+      // silent — wish stays pending
+    } finally {
+      setUpdating(null);
+    }
   }
 
   const pending = wishes.filter(w => w.status === 'pending').length;
@@ -40,65 +51,98 @@ export default function WishesScreen() {
         {/* Summary banner */}
         <View style={styles.banner}>
           <View style={styles.bannerStat}>
-            <Text style={styles.bannerNum}>{pending}</Text>
+            <Text style={styles.bannerNum}>{loading ? '–' : pending}</Text>
             <Text style={styles.bannerLabel}>Offen</Text>
           </View>
           <View style={styles.bannerDivider} />
           <View style={styles.bannerStat}>
-            <Text style={[styles.bannerNum, { color: '#059669' }]}>{approved}</Text>
+            <Text style={[styles.bannerNum, { color: '#059669' }]}>{loading ? '–' : approved}</Text>
             <Text style={styles.bannerLabel}>Genehmigt</Text>
           </View>
           <View style={styles.bannerDivider} />
           <View style={styles.bannerStat}>
-            <Text style={[styles.bannerNum, { color: '#DC2626' }]}>{rejected}</Text>
+            <Text style={[styles.bannerNum, { color: '#DC2626' }]}>{loading ? '–' : rejected}</Text>
             <Text style={styles.bannerLabel}>Abgelehnt</Text>
           </View>
         </View>
 
-        {/* Wish cards */}
-        {wishes.map(w => (
-          <View key={w.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.avatarBox}>
-                <Text style={styles.avatarText}>{w.azubiName.split(' ').map(n => n[0]).join('').slice(0, 2)}</Text>
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardName}>{w.azubiName}</Text>
-                <Text style={styles.cardDate}>{w.date}</Text>
-              </View>
-              {w.status !== 'pending' && (
-                <View style={[styles.statusBadge, w.status === 'approved' ? styles.badgeApproved : styles.badgeRejected]}>
-                  <Text style={[styles.statusBadgeText, w.status === 'approved' ? styles.badgeApprovedText : styles.badgeRejectedText]}>
-                    {w.status === 'approved' ? '✓ Genehmigt' : '✗ Abgelehnt'}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.wishType}>
-              {w.type === 'free' ? (
-                <View style={styles.freeTag}>
-                  <Text style={styles.freeTagText}>Freiwunsch</Text>
-                </View>
-              ) : (
-                <View style={styles.timeTag}>
-                  <Text style={styles.timeTagText}>⏱ {w.timeframe}</Text>
-                </View>
-              )}
-            </View>
-
-            {w.status === 'pending' && (
-              <View style={styles.btnRow}>
-                <TouchableOpacity style={styles.approveBtn} onPress={() => setStatus(w.id, 'approved')} activeOpacity={0.8}>
-                  <Text style={styles.approveBtnText}>Genehmigen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.rejectBtn} onPress={() => setStatus(w.id, 'rejected')} activeOpacity={0.8}>
-                  <Text style={styles.rejectBtnText}>Ablehnen</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+        {loading ? (
+          <ActivityIndicator color={BRAND.primary} style={{ marginTop: 40 }} />
+        ) : wishes.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>✋</Text>
+            <Text style={styles.emptyTitle}>Keine Wünsche</Text>
+            <Text style={styles.emptyText}>Sobald Azubis Wünsche einreichen, erscheinen sie hier.</Text>
           </View>
-        ))}
+        ) : (
+          wishes.map(w => {
+            const isFree = w.wishFree;
+            const timeframe = !isFree && w.timeWindows.length > 0
+              ? w.timeWindows.map(tw => `${tw.start} – ${tw.end}`).join(', ')
+              : null;
+            const isUpdating = updating === w.id;
+
+            return (
+              <View key={w.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.avatarBox}>
+                    <Text style={styles.avatarText}>
+                      {w.azubiName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardName}>{w.azubiName}</Text>
+                    <Text style={styles.cardDate}>{w.date}</Text>
+                  </View>
+                  {w.status !== 'pending' && (
+                    <View style={[styles.statusBadge, w.status === 'approved' ? styles.badgeApproved : styles.badgeRejected]}>
+                      <Text style={[styles.statusBadgeText, w.status === 'approved' ? styles.badgeApprovedText : styles.badgeRejectedText]}>
+                        {w.status === 'approved' ? '✓ Genehmigt' : '✗ Abgelehnt'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.wishType}>
+                  {isFree ? (
+                    <View style={styles.freeTag}>
+                      <Text style={styles.freeTagText}>Freiwunsch</Text>
+                    </View>
+                  ) : timeframe ? (
+                    <View style={styles.timeTag}>
+                      <Text style={styles.timeTagText}>⏱ {timeframe}</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {w.status === 'pending' && (
+                  <View style={styles.btnRow}>
+                    <TouchableOpacity
+                      style={[styles.approveBtn, isUpdating && { opacity: 0.5 }]}
+                      onPress={() => handleStatus(w.id, 'approved')}
+                      disabled={isUpdating}
+                      activeOpacity={0.8}
+                    >
+                      {isUpdating
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Text style={styles.approveBtnText}>Genehmigen</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rejectBtn, isUpdating && { opacity: 0.5 }]}
+                      onPress={() => handleStatus(w.id, 'rejected')}
+                      disabled={isUpdating}
+                      activeOpacity={0.8}
+                    >
+                      {isUpdating
+                        ? <ActivityIndicator color="#DC2626" size="small" />
+                        : <Text style={styles.rejectBtnText}>Ablehnen</Text>}
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -118,6 +162,10 @@ const styles = StyleSheet.create({
   bannerNum: { fontSize: 26, fontWeight: '800', color: ADMIN_PURPLE },
   bannerLabel: { fontSize: 11, color: BRAND.textSecondary, fontWeight: '600', marginTop: 2 },
   bannerDivider: { width: 1, backgroundColor: BRAND.border, marginHorizontal: 8 },
+  emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
+  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 8 },
+  emptyText: { fontSize: 14, color: BRAND.textSecondary, textAlign: 'center', lineHeight: 20 },
   card: {
     backgroundColor: BRAND.surface, borderRadius: 14, padding: 16, marginBottom: 12,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6,

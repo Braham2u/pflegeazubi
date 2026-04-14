@@ -103,3 +103,14 @@ export function getShiftsForWeek(azubiId: string, weekStart: Date): (Shift | nul
 export function hasPlan(azubiId: string): boolean {
   return !!sharedPlanStore[azubiId] && Object.keys(sharedPlanStore[azubiId]).length > 0;
 }
+
+/** Converts the full plan map to a flat Shift[] suitable for Firestore batch-write. */
+export function planToShifts(plan: Record<string, AzubiPlan>): Shift[] {
+  const shifts: Shift[] = [];
+  Object.entries(plan).forEach(([azubiId, azubiPlan]) => {
+    Object.entries(azubiPlan).forEach(([iso, assignment]) => {
+      shifts.push(assignmentToShift(azubiId, iso, assignment));
+    });
+  });
+  return shifts;
+}

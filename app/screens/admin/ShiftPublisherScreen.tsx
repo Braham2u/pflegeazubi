@@ -6,9 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, SHIFT_COLORS, ADMIN_PURPLE } from '../../constants/colors';
 import { ShiftType } from '../../types';
 import {
-  LOCATIONS, ADMIN_AZUBIS, publishPlan,
+  LOCATIONS, ADMIN_AZUBIS, publishPlan, planToShifts,
   DayAssignment, AzubiPlan, CareLocation,
 } from '../../data/sharedPlanStore';
+import { publishShifts } from '../../services/shifts';
 
 // Default location when a shift type is first selected
 const DEFAULT_LOCATION: Record<ShiftType, string> = {
@@ -111,8 +112,10 @@ export default function ShiftPublisherScreen() {
     setEditing(null);
   }
 
-  function publish() {
-    publishPlan(plan);        // write to shared store so Azubi view picks it up
+  async function publish() {
+    publishPlan(plan);                       // instant local update for same-session views
+    publishShifts(planToShifts(plan))        // persist to Firestore (fire-and-forget — errors are silent)
+      .catch(() => {});
     setToast(true);
     setTimeout(() => setToast(false), 2500);
   }

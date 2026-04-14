@@ -9,6 +9,9 @@ export interface User {
   ausbildungYear?: 1 | 2 | 3;
   contractedHoursPerWeek: number;
   language: 'de' | 'en' | 'ar' | 'tl' | 'hi';
+  dateOfBirth?: string;   // DD.MM.YYYY
+  startDate?: string;     // DD.MM.YYYY — training start date
+  phone?: string;
 }
 
 export interface Shift {
@@ -17,7 +20,7 @@ export interface Shift {
   date: string; // ISO: 2026-04-09
   shiftType: ShiftType;
   startTime: string; // 06:00
-  endTime: string; // 14:00
+  endTime: string;   // 14:00
   breakMinutes: number;
   facilityId: string | null;
   facilityName: string;
@@ -30,9 +33,9 @@ export interface Shift {
 export interface AvailabilityWish {
   id: string;
   azubiId: string;
+  azubiName: string;
   date: string;
   wishFree: boolean;
   timeWindows: { start: string; end: string }[];
   status: 'pending' | 'approved' | 'rejected';
 }
-

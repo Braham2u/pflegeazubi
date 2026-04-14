@@ -1,11 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Shift } from '../types';
@@ -14,18 +9,8 @@ import WeekBanner from '../components/WeekBanner';
 import { BRAND, SHIFT_COLORS } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
-import { getShiftsForWeek, hasPlan } from '../data/sharedPlanStore';
-const DUMMY_SHIFTS: Shift[] = [
-  { id: '1', azubiId: 'demo', date: '', shiftType: 'early', startTime: '06:00', endTime: '14:00', breakMinutes: 30, facilityId: 'fac1', facilityName: 'Caritas St. Konrad', unitId: 'u1', unitName: 'Wohnbereich 2', supervisor: 'Fr. Maier', notes: 'Ausbildungsnachweis mitbringen' },
-  { id: '2', azubiId: 'demo', date: '', shiftType: 'school', startTime: '08:00', endTime: '15:30', breakMinutes: 45, facilityId: null, facilityName: 'Berufsschule Pfarrkirchen', unitId: null, unitName: 'Raum 12', supervisor: null, notes: null },
-  { id: '3', azubiId: 'demo', date: '', shiftType: 'late', startTime: '14:00', endTime: '22:00', breakMinutes: 30, facilityId: 'fac1', facilityName: 'Caritas St. Konrad', unitId: 'u2', unitName: 'Demenzstation', supervisor: 'Hr. Schmidt', notes: null },
-  { id: '4', azubiId: 'demo', date: '', shiftType: 'early', startTime: '06:00', endTime: '14:00', breakMinutes: 30, facilityId: 'fac1', facilityName: 'Caritas St. Konrad', unitId: 'u1', unitName: 'Wohnbereich 2', supervisor: 'Fr. Maier', notes: null },
-  { id: '5', azubiId: 'demo', date: '', shiftType: 'free', startTime: '', endTime: '', breakMinutes: 0, facilityId: null, facilityName: '', unitId: null, unitName: null, supervisor: null, notes: null },
-  { id: '6', azubiId: 'demo', date: '', shiftType: 'night', startTime: '22:00', endTime: '06:00', breakMinutes: 45, facilityId: 'fac1', facilityName: 'Caritas St. Konrad', unitId: 'u1', unitName: 'Wohnbereich 2', supervisor: 'Fr. Maier', notes: 'Nachtdienstprotokoll ausfüllen' },
-  { id: '7', azubiId: 'demo', date: '', shiftType: 'free', startTime: '', endTime: '', breakMinutes: 0, facilityId: null, facilityName: '', unitId: null, unitName: null, supervisor: null, notes: null },
-];
-
-// Day names are now sourced from useLang() inside the component
+import { getShiftsForWeek as getShiftsFirestore } from '../services/shifts';
+import { getShiftsForWeek as getShiftsLocal, hasPlan } from '../data/sharedPlanStore';
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -35,23 +20,13 @@ function getMonday(date: Date): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
-
 function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
+  const d = new Date(date); d.setDate(d.getDate() + days); return d;
 }
-
-function toISO(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
+function toISO(date: Date): string { return date.toISOString().split('T')[0]; }
 function formatDate(date: Date): string {
-  return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1)
-    .toString()
-    .padStart(2, '0')}`;
+  return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}`;
 }
-
 function calcHours(shifts: Shift[]): number {
   return shifts
     .filter(s => s.shiftType !== 'free' && s.shiftType !== 'school' && s.startTime && s.endTime)
@@ -59,15 +34,24 @@ function calcHours(shifts: Shift[]): number {
       const [sh, sm] = s.startTime.split(':').map(Number);
       const [eh, em] = s.endTime.split(':').map(Number);
       let mins = eh * 60 + em - (sh * 60 + sm);
-      if (mins < 0) mins += 24 * 60; // overnight
+      if (mins < 0) mins += 24 * 60;
       return sum + (mins - s.breakMinutes) / 60;
     }, 0);
+}
+function getKW(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
 export default function ShiftPlanScreen() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState(getMonday(today));
   const [selected, setSelected] = useState<Shift | null>(null);
+  const [weekShifts, setWeekShifts] = useState<(Shift | null)[]>(Array(7).fill(null));
+  const [loading, setLoading] = useState(true);
   const { userProfile } = useAuth();
   const { t } = useLang();
   const DAY_NAMES = t.days.short;
@@ -75,30 +59,48 @@ export default function ShiftPlanScreen() {
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Use the published plan from the admin if available; otherwise fall back to demo shifts
-  const azubiId = userProfile?.id ?? 'demo';
-  let weekShifts: (Shift | null)[];
-  if (hasPlan(azubiId)) {
-    weekShifts = getShiftsForWeek(azubiId, weekStart);
-  } else {
-    const shifts: Shift[] = DUMMY_SHIFTS.map((s, i) => ({ ...s, date: toISO(weekDates[i]) }));
-    weekShifts = weekDates.map(d => shifts.find(s => s.date === toISO(d)) ?? null);
-  }
+  const loadWeek = useCallback(async () => {
+    const azubiId = userProfile?.id ?? '';
+    if (!azubiId) { setLoading(false); return; }
+
+    setLoading(true);
+    try {
+      // 1 — try Firestore first
+      const weekStartISO = toISO(weekStart);
+      const firestoreShifts = await getShiftsFirestore(azubiId, weekStartISO);
+      if (firestoreShifts.length > 0) {
+        const mapped = weekDates.map(d => firestoreShifts.find(s => s.date === toISO(d)) ?? null);
+        setWeekShifts(mapped);
+        return;
+      }
+      // 2 — fall back to in-memory store (same session, plan just published)
+      if (hasPlan(azubiId)) {
+        setWeekShifts(getShiftsLocal(azubiId, weekStart));
+        return;
+      }
+      // 3 — nothing published yet
+      setWeekShifts(Array(7).fill(null));
+    } catch {
+      setWeekShifts(Array(7).fill(null));
+    } finally {
+      setLoading(false);
+    }
+  }, [userProfile?.id, weekStart]);
+
+  useEffect(() => { loadWeek(); }, [loadWeek]);
 
   const allShifts = weekShifts.filter((s): s is Shift => s !== null);
-
   const workedHours = Math.round(calcHours(allShifts));
+  const contractedHours = userProfile?.contractedHoursPerWeek ?? 40;
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>{t.shiftPlan.title}</Text>
           <Text style={styles.subtitle}>KW {getKW(weekStart)} · {formatDate(weekStart)} – {formatDate(addDays(weekStart, 6))}</Text>
         </View>
 
-        {/* Week navigation */}
         <View style={styles.navRow}>
           <TouchableOpacity style={styles.navBtn} onPress={() => setWeekStart(addDays(weekStart, -7))}>
             <Text style={styles.navText}>{t.shiftPlan.prevWeek}</Text>
@@ -111,40 +113,41 @@ export default function ShiftPlanScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Hours banner */}
-        <WeekBanner workedHours={workedHours} contractedHours={40} />
+        <WeekBanner workedHours={workedHours} contractedHours={contractedHours} />
 
-        {/* Day rows */}
-        {weekDates.map((date, i) => {
-          const iso = toISO(date);
-          const shift = weekShifts[i];
-          const isToday = iso === toISO(today);
-          return (
-            <View key={iso} style={[styles.dayRow, isToday && styles.todayRow]}>
-              <View style={styles.dayLabel}>
-                <Text style={[styles.dayName, isToday && styles.todayText]}>{DAY_NAMES[i]}</Text>
-                <Text style={[styles.dayDate, isToday && styles.todayText]}>{formatDate(date)}</Text>
+        {loading ? (
+          <ActivityIndicator color={BRAND.primary} style={{ marginTop: 32 }} />
+        ) : (
+          weekDates.map((date, i) => {
+            const iso = toISO(date);
+            const shift = weekShifts[i];
+            const isToday = iso === toISO(today);
+            return (
+              <View key={iso} style={[styles.dayRow, isToday && styles.todayRow]}>
+                <View style={styles.dayLabel}>
+                  <Text style={[styles.dayName, isToday && styles.todayText]}>{DAY_NAMES[i]}</Text>
+                  <Text style={[styles.dayDate, isToday && styles.todayText]}>{formatDate(date)}</Text>
+                </View>
+                <View style={styles.cardArea}>
+                  {shift ? (
+                    <ShiftCard shift={shift} onPress={setSelected} />
+                  ) : (
+                    <View style={styles.emptyCard}>
+                      <Text style={styles.emptyText}>{t.shiftPlan.noShift}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-              <View style={styles.cardArea}>
-                {shift ? (
-                  <ShiftCard shift={shift} onPress={setSelected} />
-                ) : (
-                  <View style={styles.emptyCard}>
-                    <Text style={styles.emptyText}>{t.shiftPlan.noShift}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        })}
+            );
+          })
+        )}
       </ScrollView>
 
-      {/* Detail modal */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSelected(null)}>
           {selected && (
             <View style={styles.sheet}>
-              <View style={[styles.sheetHandle]} />
+              <View style={styles.sheetHandle} />
               <Text style={styles.sheetTitle}>
                 {DAY_NAMES_FULL[new Date(selected.date).getDay() === 0 ? 6 : new Date(selected.date).getDay() - 1]},{' '}
                 {formatDate(new Date(selected.date))}
@@ -181,14 +184,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getKW(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BRAND.background },
   scroll: { padding: 16, paddingBottom: 32 },
@@ -206,21 +201,14 @@ const styles = StyleSheet.create({
   todayText: { color: BRAND.primary },
   cardArea: { flex: 1 },
   emptyCard: {
-    backgroundColor: BRAND.surface,
-    borderRadius: 12,
-    padding: 12,
-    marginVertical: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: BRAND.border,
+    backgroundColor: BRAND.surface, borderRadius: 12, padding: 12, marginVertical: 4,
+    borderLeftWidth: 4, borderLeftColor: BRAND.border,
   },
   emptyText: { fontSize: 13, color: BRAND.textSecondary },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: BRAND.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
+    backgroundColor: BRAND.surface, borderTopLeftRadius: 20,
+    borderTopRightRadius: 20, padding: 24, paddingBottom: 40,
   },
   sheetHandle: {
     width: 40, height: 4, backgroundColor: BRAND.border,

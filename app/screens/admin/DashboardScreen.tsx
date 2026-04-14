@@ -1,25 +1,38 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, ADMIN_PURPLE } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
-
-const METRICS = [
-  { label: 'Azubis aktiv', value: '3', icon: '👥' },
-  { label: 'Wünsche offen', value: '4', icon: '✋' },
-  { label: 'Dienste Woche', value: '12', icon: '📋' },
-  { label: 'Stunden Ø', value: '38,5', icon: '⏱' },
-];
-
-const ACTIONS = [
-  { label: 'Dienstplan veröffentlichen', icon: '📋' },
-  { label: 'Wünsche prüfen (4)', icon: '✋' },
-  { label: 'Neuen Azubi einladen', icon: '➕' },
-];
+import { getAllAzubis } from '../../services/users';
+import { countWishesByStatus } from '../../services/wishes';
 
 export default function DashboardScreen() {
   const { userProfile } = useAuth();
   const firstName = userProfile?.name.split(' ')[0] ?? 'Admin';
+
+  const [azubiCount, setAzubiCount] = useState<number | null>(null);
+  const [pendingWishes, setPendingWishes] = useState<number | null>(null);
+
+  useEffect(() => {
+    getAllAzubis()
+      .then(list => setAzubiCount(list.length))
+      .catch(() => setAzubiCount(0));
+
+    countWishesByStatus()
+      .then(counts => setPendingWishes(counts.pending))
+      .catch(() => setPendingWishes(0));
+  }, []);
+
+  const metrics = [
+    { label: 'Azubis aktiv', value: azubiCount, icon: '👥' },
+    { label: 'Wünsche offen', value: pendingWishes, icon: '✋' },
+  ];
+
+  const ACTIONS = [
+    { label: 'Dienstplan veröffentlichen', icon: '📋' },
+    { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋' },
+    { label: 'Neuen Azubi einladen', icon: '➕' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -27,12 +40,14 @@ export default function DashboardScreen() {
         <Text style={styles.greeting}>Hallo, {firstName} 👋</Text>
         <Text style={styles.subtitle}>Ausbildungsleitung · Übersicht</Text>
 
-        {/* Metric cards 2×2 */}
+        {/* Metric cards */}
         <View style={styles.grid}>
-          {METRICS.map((m) => (
+          {metrics.map((m) => (
             <View key={m.label} style={styles.card}>
               <Text style={styles.cardIcon}>{m.icon}</Text>
-              <Text style={styles.cardValue}>{m.value}</Text>
+              {m.value === null
+                ? <ActivityIndicator color={ADMIN_PURPLE} style={{ marginVertical: 6 }} />
+                : <Text style={styles.cardValue}>{m.value}</Text>}
               <Text style={styles.cardLabel}>{m.label}</Text>
             </View>
           ))}
@@ -42,7 +57,11 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>Nächste Aktionen</Text>
         <View style={styles.actionList}>
           {ACTIONS.map((a, i) => (
-            <TouchableOpacity key={a.label} style={[styles.actionRow, i < ACTIONS.length - 1 && styles.actionRowBorder]} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={a.label}
+              style={[styles.actionRow, i < ACTIONS.length - 1 && styles.actionRowBorder]}
+              activeOpacity={0.7}
+            >
               <Text style={styles.actionIcon}>{a.icon}</Text>
               <Text style={styles.actionLabel}>{a.label}</Text>
               <Text style={styles.actionArrow}>›</Text>
@@ -61,7 +80,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: ADMIN_PURPLE, fontWeight: '600', marginTop: 4, marginBottom: 24 },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    marginHorizontal: -6,
+    marginHorizontal: -6, marginBottom: 8,
   },
   card: {
     width: '50%',

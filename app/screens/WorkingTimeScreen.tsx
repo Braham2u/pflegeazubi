@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DonutChart from '../components/DonutChart';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { BRAND, SHIFT_COLORS } from '../constants/colors';
+import { getShiftsForMonth } from '../services/shifts';
+import { Shift } from '../types';
 
 type Block = { start: string; end: string; breakMins: number; shiftType: string };
 type DayEntry = { date: string; blocks: Block[] };
@@ -19,24 +21,16 @@ function calcHours(start: string, end: string, breakMins: number) {
   return (mins - breakMins) / 60;
 }
 
-function generateDummyMonth(year: number, month: number): DayEntry[] {
-  const entries: DayEntry[] = [];
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const patterns: Block[][] = [
-    [{ start: '06:00', end: '14:00', breakMins: 30, shiftType: 'early' }],
-    [{ start: '14:00', end: '22:00', breakMins: 30, shiftType: 'late' }],
-    [{ start: '06:00', end: '14:00', breakMins: 30, shiftType: 'early' }],
-    [],
-    [{ start: '06:00', end: '14:00', breakMins: 30, shiftType: 'early' }],
-    [{ start: '14:00', end: '22:00', breakMins: 30, shiftType: 'late' }],
-    [],
-  ];
-  for (let d = 1; d <= daysInMonth; d++) {
-    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const blocks = patterns[(d - 1) % 7];
-    if (blocks.length > 0) entries.push({ date: iso, blocks });
+function shiftsToEntries(shifts: Shift[]): DayEntry[] {
+  const map: Record<string, Block[]> = {};
+  for (const s of shifts) {
+    if (s.shiftType === 'free' || s.shiftType === 'school' || !s.startTime || !s.endTime) continue;
+    if (!map[s.date]) map[s.date] = [];
+    map[s.date].push({ start: s.startTime, end: s.endTime, breakMins: s.breakMinutes, shiftType: s.shiftType });
   }
-  return entries;
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, blocks]) => ({ date, blocks }));
 }
 
 export default function WorkingTimeScreen() {
@@ -44,13 +38,29 @@ export default function WorkingTimeScreen() {
   const { userProfile } = useAuth();
   const today = new Date();
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [allEntries, setAllEntries] = useState<DayEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const contractedMonthly = Math.round((userProfile?.contractedHoursPerWeek ?? 40) * 4.33);
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
-  const allEntries = generateDummyMonth(year, month);
+  const loadMonth = useCallback(async () => {
+    if (!userProfile) return;
+    setLoading(true);
+    try {
+      const shifts = await getShiftsForMonth(userProfile.id, year, month);
+      setAllEntries(shiftsToEntries(shifts));
+    } catch {
+      setAllEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userProfile, year, month]);
+
+  useEffect(() => { loadMonth(); }, [loadMonth]);
+
   const visibleEntries = isCurrentMonth
     ? allEntries.filter(e => e.date <= today.toISOString().split('T')[0])
     : allEntries;
@@ -97,7 +107,9 @@ export default function WorkingTimeScreen() {
         </View>
 
         {/* Daily breakdown */}
-        {visibleEntries.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator color={BRAND.primary} style={{ marginTop: 32 }} />
+        ) : visibleEntries.length === 0 ? (
           <Text style={styles.noData}>{t.workingTime.noData}</Text>
         ) : (
           visibleEntries.slice().reverse().map(entry => {

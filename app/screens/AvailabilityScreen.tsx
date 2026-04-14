@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLang } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { BRAND } from '../constants/colors';
+import { submitWishes, getWishesForWeek } from '../services/wishes';
 
 type TimeWindow = { id: string; start: string; end: string };
 type DayWish = { wishFree: boolean; timeWindows: TimeWindow[] };
@@ -18,37 +21,47 @@ function getMonday(d: Date) {
   date.setHours(0, 0, 0, 0);
   return date;
 }
-function addDays(d: Date, n: number) {
-  const r = new Date(d); r.setDate(r.getDate() + n); return r;
-}
+function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function toISO(d: Date) { return d.toISOString().split('T')[0]; }
 function fmt(d: Date) { return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`; }
 
-// Module-level store so wishes survive tab navigation
-const persistedWishes = new Map<string, WeekWishes>();
-const STORE_KEY = 'azubi-wishes';
-
 export default function AvailabilityScreen() {
   const { t } = useLang();
+  const { userProfile } = useAuth();
   const today = new Date();
   const [weekStart, setWeekStart] = useState(getMonday(today));
   const [wishes, setWishes] = useState<WeekWishes>({});
+  const [loadingWishes, setLoadingWishes] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editing, setEditing] = useState<{ date: string; windowId: string | null } | null>(null);
   const [editStart, setEditStart] = useState('07:00');
   const [editEnd, setEditEnd] = useState('14:00');
 
-  // Load persisted wishes on mount
-  useEffect(() => {
-    const saved = persistedWishes.get(STORE_KEY);
-    if (saved) setWishes(saved);
-  }, []);
-
-  // Save wishes whenever they change
-  useEffect(() => {
-    persistedWishes.set(STORE_KEY, wishes);
-  }, [wishes]);
-
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Load wishes from Firestore whenever the week changes
+  const loadWishes = useCallback(async () => {
+    if (!userProfile) return;
+    setLoadingWishes(true);
+    try {
+      const weekStartISO = toISO(weekStart);
+      const firestoreWishes = await getWishesForWeek(userProfile.id, weekStartISO);
+      const mapped: WeekWishes = {};
+      firestoreWishes.forEach(w => {
+        mapped[w.date] = {
+          wishFree: w.wishFree,
+          timeWindows: w.timeWindows.map((tw, i) => ({ id: i.toString(), start: tw.start, end: tw.end })),
+        };
+      });
+      setWishes(mapped);
+    } catch {
+      setWishes({});
+    } finally {
+      setLoadingWishes(false);
+    }
+  }, [userProfile, weekStart]);
+
+  useEffect(() => { loadWishes(); }, [loadWishes]);
 
   function getDayWish(iso: string): DayWish {
     return wishes[iso] ?? { wishFree: false, timeWindows: [] };
@@ -60,8 +73,7 @@ export default function AvailabilityScreen() {
   }
 
   function openAdd(iso: string) {
-    setEditStart('07:00');
-    setEditEnd('14:00');
+    setEditStart('07:00'); setEditEnd('14:00');
     setEditing({ date: iso, windowId: null });
   }
 
@@ -86,17 +98,40 @@ export default function AvailabilityScreen() {
     setEditing(null);
   }
 
-  function submitWeek() {
-    Alert.alert(
-      t.availability.submitWeek,
-      'Deine Wünsche für diese Woche wurden eingereicht.',
-      [{ text: 'OK' }]
-    );
-  }
-
   function deleteWindow(iso: string, windowId: string) {
     const curr = getDayWish(iso);
     setWishes(w => ({ ...w, [iso]: { ...curr, timeWindows: curr.timeWindows.filter(tw => tw.id !== windowId) } }));
+  }
+
+  async function submitWeek() {
+    if (!userProfile) return;
+    setSubmitting(true);
+    try {
+      const docs = weekDates
+        .map(d => toISO(d))
+        .filter(iso => {
+          const dw = getDayWish(iso);
+          return dw.wishFree || dw.timeWindows.length > 0;
+        })
+        .map(iso => {
+          const dw = getDayWish(iso);
+          return {
+            azubiId: userProfile.id,
+            azubiName: userProfile.name,
+            date: iso,
+            wishFree: dw.wishFree,
+            timeWindows: dw.timeWindows.map(tw => ({ start: tw.start, end: tw.end })),
+            status: 'pending' as const,
+          };
+        });
+
+      await submitWishes(docs);
+      Alert.alert(t.availability.submitWeek, 'Deine Wünsche wurden erfolgreich eingereicht.');
+    } catch {
+      Alert.alert('Fehler', 'Die Wünsche konnten nicht gespeichert werden. Bitte erneut versuchen.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -104,7 +139,6 @@ export default function AvailabilityScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>{t.availability.title}</Text>
 
-        {/* Week navigation */}
         <View style={styles.weekNav}>
           <TouchableOpacity onPress={() => setWeekStart(addDays(weekStart, -7))} style={styles.navBtn}>
             <Text style={styles.navArrow}>‹</Text>
@@ -117,66 +151,68 @@ export default function AvailabilityScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Day cards */}
-        {weekDates.map((date, i) => {
-          const iso = toISO(date);
-          const dw = getDayWish(iso);
-          const isToday = iso === toISO(today);
-          return (
-            <View key={iso} style={styles.dayCard}>
-              <View style={styles.dayHeader}>
-                <View style={styles.dayLabelBox}>
-                  <View style={[styles.dayDot, isToday && styles.dayDotToday]} />
-                  <View>
-                    <Text style={[styles.dayName, isToday && { color: BRAND.primary }]}>
-                      {t.days.long[i]}
-                    </Text>
-                    <Text style={[styles.dayDate, isToday && { color: BRAND.primary }]}>{fmt(date)}</Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  onPress={() => toggleWishFree(iso)}
-                  style={[styles.wishFreeBtn, dw.wishFree && styles.wishFreeBtnActive]}
-                >
-                  <Text style={[styles.wishFreeBtnText, dw.wishFree && styles.wishFreeBtnTextActive]}>
-                    {t.availability.wishFree}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {dw.wishFree ? (
-                <View style={styles.wishFreeTag}>
-                  <Text style={styles.wishFreeTagText}>{t.availability.wishFreeSet}</Text>
-                </View>
-              ) : (
-                <View style={styles.timeWindowArea}>
-                  {dw.timeWindows.map(tw => (
-                    <View key={tw.id} style={styles.timeRow}>
-                      <View style={styles.timeBar} />
-                      <TouchableOpacity style={styles.timeInfo} onPress={() => openEdit(iso, tw.id)}>
-                        <Text style={styles.timeText}>{tw.start} – {tw.end}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => deleteWindow(iso, tw.id)} style={styles.deleteBtn}>
-                        <Text style={styles.deleteText}>×</Text>
-                      </TouchableOpacity>
+        {loadingWishes ? (
+          <ActivityIndicator color={BRAND.primary} style={{ marginTop: 32 }} />
+        ) : (
+          weekDates.map((date, i) => {
+            const iso = toISO(date);
+            const dw = getDayWish(iso);
+            const isToday = iso === toISO(today);
+            return (
+              <View key={iso} style={styles.dayCard}>
+                <View style={styles.dayHeader}>
+                  <View style={styles.dayLabelBox}>
+                    <View style={[styles.dayDot, isToday && styles.dayDotToday]} />
+                    <View>
+                      <Text style={[styles.dayName, isToday && { color: BRAND.primary }]}>{t.days.long[i]}</Text>
+                      <Text style={[styles.dayDate, isToday && { color: BRAND.primary }]}>{fmt(date)}</Text>
                     </View>
-                  ))}
-                  <TouchableOpacity onPress={() => openAdd(iso)} style={styles.addBtn}>
-                    <Text style={styles.addBtnText}>{t.availability.addTimeframe}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => toggleWishFree(iso)}
+                    style={[styles.wishFreeBtn, dw.wishFree && styles.wishFreeBtnActive]}
+                  >
+                    <Text style={[styles.wishFreeBtnText, dw.wishFree && styles.wishFreeBtnTextActive]}>
+                      {dw.wishFree ? t.availability.wishFreeSet : t.availability.wishFree}
+                    </Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            </View>
-          );
-        })}
 
-        {/* Submit week button */}
-        <TouchableOpacity style={styles.submitBtn} onPress={submitWeek} activeOpacity={0.8}>
-          <Text style={styles.submitBtnText}>{t.availability.submitWeek}</Text>
+                {!dw.wishFree && (
+                  <View style={styles.timeWindowArea}>
+                    {dw.timeWindows.map(tw => (
+                      <View key={tw.id} style={styles.timeRow}>
+                        <View style={styles.timeBar} />
+                        <TouchableOpacity style={styles.timeInfo} onPress={() => openEdit(iso, tw.id)}>
+                          <Text style={styles.timeText}>{tw.start} – {tw.end}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteWindow(iso, tw.id)} style={styles.deleteBtn}>
+                          <Text style={styles.deleteText}>×</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity onPress={() => openAdd(iso)} style={styles.addBtn}>
+                      <Text style={styles.addBtnText}>{t.availability.addTimeframe}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
+
+        <TouchableOpacity
+          style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+          onPress={submitWeek}
+          disabled={submitting}
+          activeOpacity={0.8}
+        >
+          {submitting
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.submitBtnText}>{t.availability.submitWeek}</Text>}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Edit / Add modal */}
       <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setEditing(null)}>
           <View style={styles.sheet}>
@@ -185,25 +221,11 @@ export default function AvailabilityScreen() {
             <View style={styles.inputRow}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>{t.availability.from}</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  value={editStart}
-                  onChangeText={setEditStart}
-                  placeholder="HH:MM"
-                  keyboardType="numbers-and-punctuation"
-                  selectTextOnFocus
-                />
+                <TextInput style={styles.timeInput} value={editStart} onChangeText={setEditStart} placeholder="HH:MM" keyboardType="numbers-and-punctuation" selectTextOnFocus />
               </View>
               <View style={[styles.inputGroup, { marginLeft: 12 }]}>
                 <Text style={styles.inputLabel}>{t.availability.to}</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  value={editEnd}
-                  onChangeText={setEditEnd}
-                  placeholder="HH:MM"
-                  keyboardType="numbers-and-punctuation"
-                  selectTextOnFocus
-                />
+                <TextInput style={styles.timeInput} value={editEnd} onChangeText={setEditEnd} placeholder="HH:MM" keyboardType="numbers-and-punctuation" selectTextOnFocus />
               </View>
             </View>
             <View style={styles.sheetBtns}>
@@ -228,16 +250,11 @@ const styles = StyleSheet.create({
   weekNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   navBtn: { padding: 8 },
   navArrow: { fontSize: 28, color: BRAND.primary, fontWeight: '600' },
-  weekLabelBox: {
-    backgroundColor: BRAND.primary, borderRadius: 10,
-    paddingHorizontal: 16, paddingVertical: 8,
-  },
+  weekLabelBox: { backgroundColor: BRAND.primary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   weekLabel: { color: '#fff', fontWeight: '700', fontSize: 14 },
   dayCard: {
-    backgroundColor: BRAND.surface, borderRadius: 14,
-    padding: 14, marginBottom: 10,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6,
-    shadowOffset: { width: 0, height: 1 }, elevation: 1,
+    backgroundColor: BRAND.surface, borderRadius: 14, padding: 14, marginBottom: 10,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
   dayHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   dayLabelBox: { flexDirection: 'row', alignItems: 'center', columnGap: 10 },
@@ -245,23 +262,12 @@ const styles = StyleSheet.create({
   dayDotToday: { backgroundColor: BRAND.primary },
   dayName: { fontSize: 14, fontWeight: '700', color: BRAND.textPrimary },
   dayDate: { fontSize: 12, color: BRAND.textSecondary, marginTop: 1 },
-  wishFreeBtn: {
-    borderWidth: 1.5, borderColor: BRAND.primary,
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
-  },
+  wishFreeBtn: { borderWidth: 1.5, borderColor: BRAND.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   wishFreeBtnActive: { backgroundColor: BRAND.primary },
   wishFreeBtnText: { fontSize: 12, fontWeight: '600', color: BRAND.primary },
   wishFreeBtnTextActive: { color: '#fff' },
-  wishFreeTag: {
-    backgroundColor: BRAND.primaryLight, borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 8,
-  },
-  wishFreeTagText: { fontSize: 13, fontWeight: '600', color: BRAND.primary },
   timeWindowArea: { marginTop: 4 },
-  timeRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 6, columnGap: 8,
-  },
+  timeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, columnGap: 8 },
   timeBar: { width: 3, height: 28, borderRadius: 2, backgroundColor: BRAND.primary },
   timeInfo: { flex: 1 },
   timeText: { fontSize: 14, fontWeight: '600', color: BRAND.textPrimary },
@@ -269,15 +275,11 @@ const styles = StyleSheet.create({
   deleteText: { fontSize: 20, color: '#DC2626', fontWeight: '400', lineHeight: 22 },
   addBtn: { marginTop: 4, paddingVertical: 6 },
   addBtnText: { fontSize: 13, color: BRAND.primary, fontWeight: '600' },
+  submitBtn: { backgroundColor: '#059669', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8, marginBottom: 16 },
+  submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: BRAND.surface, borderTopLeftRadius: 20,
-    borderTopRightRadius: 20, padding: 24, paddingBottom: 40,
-  },
-  sheetHandle: {
-    width: 40, height: 4, backgroundColor: BRAND.border,
-    borderRadius: 2, alignSelf: 'center', marginBottom: 20,
-  },
+  sheet: { backgroundColor: BRAND.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  sheetHandle: { width: 40, height: 4, backgroundColor: BRAND.border, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 20 },
   inputRow: { flexDirection: 'row', marginBottom: 24 },
   inputGroup: { flex: 1 },
@@ -293,9 +295,4 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: BRAND.textSecondary },
   saveBtn: { backgroundColor: BRAND.primary },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  submitBtn: {
-    backgroundColor: '#059669', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8, marginBottom: 16,
-  },
-  submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
