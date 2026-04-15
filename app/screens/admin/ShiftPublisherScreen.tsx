@@ -1,24 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, SHIFT_COLORS, ADMIN_PURPLE } from '../../constants/colors';
 import { ShiftType } from '../../types';
 import {
-  LOCATIONS, ADMIN_AZUBIS, publishPlan, planToShifts,
+  LOCATIONS, publishPlan, planToShifts,
   DayAssignment, AzubiPlan, CareLocation,
 } from '../../data/sharedPlanStore';
 import { publishShifts } from '../../services/shifts';
+import { getAllAzubis } from '../../services/users';
+import { User } from '../../types';
 
 // Default location when a shift type is first selected
 const DEFAULT_LOCATION: Record<ShiftType, string> = {
   early: 'loc1', late: 'loc2', night: 'loc1',
   school: 'loc4', free: '', external: 'loc3',
 };
-
-// Use the shared roster so IDs match demo account IDs
-const AZUBIS = ADMIN_AZUBIS;
 
 const SHIFT_OPTIONS: ShiftType[] = ['early', 'late', 'night', 'school', 'free'];
 
@@ -49,17 +48,13 @@ function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDat
 function toISO(d: Date) { return d.toISOString().split('T')[0]; }
 function fmt(d: Date) { return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`; }
 
-function initPlan(): Record<string, AzubiPlan> {
-  const monday = getMonday(new Date());
+function initPlan(azubis: { id: string }[], weekStart: Date): Record<string, AzubiPlan> {
   const result: Record<string, AzubiPlan> = {};
-  const defaults: ShiftType[] = ['early', 'late', 'early', 'late', 'early', 'free', 'free'];
-  const cycle: ShiftType[] = ['early', 'late', 'night'];
-  AZUBIS.forEach((az, ai) => {
+  azubis.forEach(az => {
     result[az.id] = {};
     for (let i = 0; i < 7; i++) {
-      const iso = toISO(addDays(monday, i));
-      const st = ai === 0 ? defaults[i] : cycle[i % 3];
-      result[az.id][iso] = { shiftType: st, locationId: DEFAULT_LOCATION[st] };
+      const iso = toISO(addDays(weekStart, i));
+      result[az.id][iso] = { shiftType: 'free', locationId: '' };
     }
   });
   return result;
@@ -78,14 +73,41 @@ type EditState = { azubiId: string; iso: string; pendingShift: ShiftType | null 
 export default function ShiftPublisherScreen() {
   const today = new Date();
   const [weekStart, setWeekStart] = useState(getMonday(today));
-  const [plan, setPlan] = useState<Record<string, AzubiPlan>>(initPlan);
+  const [azubis, setAzubis] = useState<User[]>([]);
+  const [loadingAzubis, setLoadingAzubis] = useState(true);
+  const [plan, setPlan] = useState<Record<string, AzubiPlan>>({});
   const [editing, setEditing] = useState<EditState | null>(null);
   const [toast, setToast] = useState(false);
-
   const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
 
+  useEffect(() => {
+    getAllAzubis()
+      .then(list => {
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setAzubis(list);
+        setPlan(initPlan(list, getMonday(today)));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingAzubis(false));
+  }, []);
+
+  // Re-initialise plan slots when week changes (keep existing assignments, fill new days)
+  useEffect(() => {
+    if (azubis.length === 0) return;
+    setPlan(prev => {
+      const base = initPlan(azubis, weekStart);
+      // Merge: keep any existing assignment already set for this week
+      azubis.forEach(az => {
+        Object.keys(base[az.id]).forEach(iso => {
+          if (prev[az.id]?.[iso]) base[az.id][iso] = prev[az.id][iso];
+        });
+      });
+      return base;
+    });
+  }, [weekStart, azubis]);
+
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const editingAzubi = AZUBIS.find(a => a.id === editing?.azubiId);
+  const editingAzubi = azubis.find(a => a.id === editing?.azubiId);
   const selectedLoc = LOCATIONS.find(l => l.id === selectedLocId) ?? null;
   const currentAssignment = editing ? plan[editing.azubiId]?.[editing.iso] : null;
   const isStep2 = editing?.pendingShift != null;
@@ -195,7 +217,15 @@ export default function ShiftPublisherScreen() {
           ))}
         </View>
 
-        {AZUBIS.map(az => (
+        {loadingAzubis ? (
+          <ActivityIndicator color={ADMIN_PURPLE} style={{ marginVertical: 32 }} />
+        ) : azubis.length === 0 ? (
+          <Text style={{ textAlign: 'center', color: BRAND.textSecondary, marginVertical: 32 }}>
+            Noch keine Azubis im System.
+          </Text>
+        ) : null}
+
+        {azubis.map(az => (
           <View key={az.id} style={styles.azubiRow}>
             <View style={styles.nameCol}>
               <Text style={styles.azubiName} numberOfLines={1}>{az.name.split(' ')[0]}</Text>
@@ -244,7 +274,7 @@ export default function ShiftPublisherScreen() {
 
           {LOCATIONS.map(loc => {
           // Only show a location card if at least one azubi is assigned there this week
-          const assignedHere = AZUBIS.filter(az =>
+          const assignedHere = azubis.filter(az =>
             weekDates.some(d => plan[az.id]?.[toISO(d)]?.locationId === loc.id)
           );
           if (assignedHere.length === 0) return null;
@@ -272,7 +302,7 @@ export default function ShiftPublisherScreen() {
               </View>
 
               {/* One row per azubi assigned to this location */}
-              {assignedHere.map(az => (
+              {(assignedHere as User[]).map(az => (
                 <View key={az.id} style={styles.miniAzubiRow}>
                   <View style={styles.miniNameCol}>
                     <Text style={styles.miniAzubiName}>{az.name.split(' ')[0].slice(0, 4)}</Text>

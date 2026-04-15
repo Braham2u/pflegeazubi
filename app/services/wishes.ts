@@ -1,6 +1,5 @@
 import {
-  collection, query, where, getDocs, doc, updateDoc,
-  orderBy, writeBatch,
+  collection, query, where, getDocs, doc, updateDoc, writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { AvailabilityWish } from '../types';
@@ -8,13 +7,11 @@ import { AvailabilityWish } from '../types';
 /** All wishes for a single Azubi, sorted by date. */
 export async function getWishesForAzubi(azubiId: string): Promise<AvailabilityWish[]> {
   if (!db) return [];
-  const q = query(
-    collection(db, 'wishes'),
-    where('azubiId', '==', azubiId),
-    orderBy('date'),
-  );
+  const q = query(collection(db, 'wishes'), where('azubiId', '==', azubiId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as AvailabilityWish));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AvailabilityWish))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** Wishes for a specific Azubi within a single week. */
@@ -24,14 +21,13 @@ export async function getWishesForWeek(azubiId: string, weekStart: string): Prom
   end.setDate(end.getDate() + 6);
   const weekEnd = end.toISOString().split('T')[0];
 
-  const q = query(
-    collection(db, 'wishes'),
-    where('azubiId', '==', azubiId),
-    where('date', '>=', weekStart),
-    where('date', '<=', weekEnd),
-  );
+  // Query only by azubiId (single equality filter — no composite index needed),
+  // then filter the date range client-side.
+  const q = query(collection(db, 'wishes'), where('azubiId', '==', azubiId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as AvailabilityWish));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AvailabilityWish))
+    .filter(w => w.date >= weekStart && w.date <= weekEnd);
 }
 
 /**
@@ -54,11 +50,14 @@ export async function getAllWishes(
   status?: 'pending' | 'approved' | 'rejected',
 ): Promise<AvailabilityWish[]> {
   if (!db) return [];
+  // No orderBy — avoids needing a Firestore composite index. Sort client-side.
   const q = status
-    ? query(collection(db, 'wishes'), where('status', '==', status), orderBy('date'))
-    : query(collection(db, 'wishes'), orderBy('date'));
+    ? query(collection(db, 'wishes'), where('status', '==', status))
+    : query(collection(db, 'wishes'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as AvailabilityWish));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AvailabilityWish))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** Approve or reject a wish (admin). */

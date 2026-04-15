@@ -30,12 +30,16 @@ export interface Shift {
   notes: string | null;
 }
 
+export type WishReason = 'vacation' | 'sick' | 'other';
+
 export interface AvailabilityWish {
   id: string;
   azubiId: string;
   azubiName: string;
   date: string;
   wishFree: boolean;
+  reason?: WishReason;
+  note?: string;
   timeWindows: { start: string; end: string }[];
   status: 'pending' | 'approved' | 'rejected';
 }

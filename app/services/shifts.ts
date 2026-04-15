@@ -4,7 +4,6 @@ import {
   where,
   getDocs,
   addDoc,
-  orderBy,
   writeBatch,
   doc,
 } from 'firebase/firestore';
@@ -17,18 +16,13 @@ export async function getShiftsForWeek(azubiId: string, weekStart: string): Prom
   end.setDate(end.getDate() + 6);
   const weekEnd = end.toISOString().split('T')[0];
 
-  // Requires composite Firestore index on (azubiId ASC, date ASC).
-  // Firebase will print a console link to create it on first run.
-  const q = query(
-    collection(db, 'shifts'),
-    where('azubiId', '==', azubiId),
-    where('date', '>=', weekStart),
-    where('date', '<=', weekEnd),
-    orderBy('date'),
-  );
-
+  // Query only by azubiId (no composite index needed), filter dates client-side.
+  const q = query(collection(db, 'shifts'), where('azubiId', '==', azubiId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Shift))
+    .filter(s => s.date >= weekStart && s.date <= weekEnd)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export async function getShiftsForMonth(
@@ -41,15 +35,13 @@ export async function getShiftsForMonth(
   const lastDay = new Date(year, month + 1, 0).getDate();
   const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-  const q = query(
-    collection(db, 'shifts'),
-    where('azubiId', '==', azubiId),
-    where('date', '>=', monthStart),
-    where('date', '<=', monthEnd),
-    orderBy('date'),
-  );
+  // Query only by azubiId (no composite index needed), filter dates client-side.
+  const q = query(collection(db, 'shifts'), where('azubiId', '==', azubiId));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Shift));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Shift))
+    .filter(s => s.date >= monthStart && s.date <= monthEnd)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**

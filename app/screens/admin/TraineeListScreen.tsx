@@ -79,9 +79,12 @@ export default function TraineeListScreen() {
     setInviteError('');
     setInviting(true);
     try {
-      await inviteAzubi({ ...form, phone: form.phone?.trim() || undefined });
+      const { tempPassword } = await inviteAzubi({ ...form, phone: form.phone?.trim() || undefined });
       setShowInvite(false);
-      Alert.alert('Einladung gesendet', `Eine E-Mail wurde an ${form.email} geschickt.`);
+      Alert.alert(
+        'Konto erstellt',
+        `Das Konto wurde angelegt.\n\nE-Mail: ${form.email}\nTemp. Passwort: ${tempPassword}\n\nBitte teile diese Zugangsdaten per WhatsApp oder SMS mit. Das Passwort kann jederzeit über "Passwort vergessen" geändert werden.`,
+      );
       load();
     } catch (e: any) {
       setInviteError(e.message ?? 'Fehler beim Einladen.');

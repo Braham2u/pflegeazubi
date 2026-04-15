@@ -1,4 +1,4 @@
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 const API_KEY = process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? '';
@@ -14,13 +14,26 @@ export interface NewAzubiData {
   primaryFacilityId?: string;
 }
 
+export interface InviteResult {
+  uid: string;
+  tempPassword: string;  // shown to admin so they can share it manually if email fails
+}
+
 /**
  * Creates a Firebase Auth account, writes the Firestore user profile,
- * and sends a password-reset email that acts as the invite link.
- * Returns the new user's UID.
+ * and attempts to send a password-reset email.
+ * Always returns the temp password so the admin can share it via another channel.
  */
-export async function inviteAzubi(data: NewAzubiData): Promise<string> {
+export async function inviteAzubi(data: NewAzubiData): Promise<InviteResult> {
   if (!db) throw new Error('Firebase not configured');
+
+  // 0 — Check Firestore first: if a profile with this email already exists, stop early
+  const existing = await getDocs(
+    query(collection(db, 'users'), where('email', '==', data.email)),
+  );
+  if (!existing.empty) {
+    throw new Error('Dieser Azubi ist bereits im System registriert.');
+  }
 
   // 1 — Create Firebase Auth user with a random temp password
   const tempPw = Math.random().toString(36).slice(-8) + 'Aa1!';
@@ -35,7 +48,21 @@ export async function inviteAzubi(data: NewAzubiData): Promise<string> {
   const signUp = await signUpRes.json();
   if (signUp.error) {
     const msg: string = signUp.error.message;
-    if (msg === 'EMAIL_EXISTS') throw new Error('Diese E-Mail-Adresse ist bereits registriert.');
+    // Auth account exists but no Firestore profile — re-send invite email and surface a
+    // clear message so the admin knows the account was already there.
+    if (msg === 'EMAIL_EXISTS') {
+      await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: data.email }),
+        },
+      );
+      throw new Error(
+        'Ein Firebase-Konto für diese E-Mail existiert bereits. Eine neue Einladungsmail wurde erneut versendet.',
+      );
+    }
     throw new Error(msg);
   }
   const uid: string = signUp.localId;
@@ -54,17 +81,15 @@ export async function inviteAzubi(data: NewAzubiData): Promise<string> {
     language: 'de',
   });
 
-  // 3 — Send invite email (password-reset link acts as the invite)
-  const inviteRes = await fetch(
+  // 3 — Attempt to send invite email (best-effort, don't throw if it fails)
+  await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: data.email }),
     },
-  );
-  const invite = await inviteRes.json();
-  if (invite.error) throw new Error(invite.error.message);
+  ).catch(() => {/* ignore — admin has the temp password as fallback */});
 
-  return uid;
+  return { uid, tempPassword: tempPw };
 }

@@ -4,7 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, ADMIN_PURPLE } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 import { getAllWishes, updateWishStatus } from '../../services/wishes';
-import { AvailabilityWish } from '../../types';
+import { AvailabilityWish, WishReason } from '../../types';
+
+const REASON_META: Record<WishReason, { label: string; icon: string; color: string; bg: string }> = {
+  vacation: { label: 'Urlaub',    icon: '🏖',  color: '#0369A1', bg: '#E0F2FE' },
+  sick:     { label: 'Krank',     icon: '🤒',  color: '#B45309', bg: '#FEF3C7' },
+  other:    { label: 'Sonstiges', icon: '📝',  color: '#6B7280', bg: '#F3F4F6' },
+};
 
 export default function WishesScreen() {
   const { userProfile } = useAuth();
@@ -105,12 +111,28 @@ export default function WishesScreen() {
 
                 <View style={styles.wishType}>
                   {isFree ? (
-                    <View style={styles.freeTag}>
-                      <Text style={styles.freeTagText}>Freiwunsch</Text>
+                    <View style={styles.tagRow}>
+                      <View style={styles.freeTag}>
+                        <Text style={styles.freeTagText}>Freiwunsch</Text>
+                      </View>
+                      {w.reason && (() => {
+                        const meta = REASON_META[w.reason];
+                        return (
+                          <View style={[styles.reasonTag, { backgroundColor: meta.bg }]}>
+                            <Text style={styles.reasonTagText}>{meta.icon} </Text>
+                            <Text style={[styles.reasonTagText, { color: meta.color }]}>{meta.label}</Text>
+                          </View>
+                        );
+                      })()}
                     </View>
                   ) : timeframe ? (
                     <View style={styles.timeTag}>
                       <Text style={styles.timeTagText}>⏱ {timeframe}</Text>
+                    </View>
+                  ) : null}
+                  {w.note ? (
+                    <View style={styles.noteBox}>
+                      <Text style={styles.noteText}>💬 {w.note}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -187,8 +209,13 @@ const styles = StyleSheet.create({
   badgeApprovedText: { color: '#059669' },
   badgeRejectedText: { color: '#DC2626' },
   wishType: { marginBottom: 14 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   freeTag: { backgroundColor: '#E1F5EE', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
   freeTagText: { fontSize: 13, fontWeight: '600', color: BRAND.primary },
+  reasonTag: { flexDirection: 'row', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
+  reasonTagText: { fontSize: 13, fontWeight: '600' },
+  noteBox: { backgroundColor: '#F9FAFB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 3, borderLeftColor: BRAND.border },
+  noteText: { fontSize: 13, color: BRAND.textSecondary, lineHeight: 18 },
   timeTag: { backgroundColor: '#EEEDFE', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
   timeTagText: { fontSize: 13, fontWeight: '600', color: ADMIN_PURPLE },
   btnRow: { flexDirection: 'row', columnGap: 10 },

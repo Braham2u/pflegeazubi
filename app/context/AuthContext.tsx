@@ -19,8 +19,8 @@ const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading]         = useState(true);
+  const [isDemo, setIsDemo]           = useState(false);
 
   useEffect(() => {
     const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
@@ -28,9 +28,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    return onAuthChange(async (user) => {
-      if (user) {
-        const profile = await getUserProfile(user.uid);
+
+    return onAuthChange(async (firebaseUser) => {
+      if (firebaseUser) {
+        let profile = await getUserProfile(firebaseUser.uid).catch(() => null);
+
+        // If no Firestore profile exists the invite's Firestore write likely failed.
+        // Log the user out rather than silently giving them the wrong role.
+        if (!profile) {
+          const { logout } = await import('../services/auth');
+          await logout().catch(() => {});
+          setUserProfile(null);
+          setLoading(false);
+          return;
+        }
+
         setUserProfile(profile);
       } else {
         setUserProfile(null);

@@ -8,10 +8,22 @@ import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { BRAND } from '../constants/colors';
 import { submitWishes, getWishesForWeek } from '../services/wishes';
+import { WishReason } from '../types';
 
 type TimeWindow = { id: string; start: string; end: string };
-type DayWish = { wishFree: boolean; timeWindows: TimeWindow[] };
+type DayWish = {
+  wishFree: boolean;
+  reason?: WishReason;
+  note?: string;
+  timeWindows: TimeWindow[];
+};
 type WeekWishes = Record<string, DayWish>;
+
+const REASONS: { value: WishReason; label: string; icon: string; color: string; bg: string }[] = [
+  { value: 'vacation', label: 'Urlaub',    icon: '🏖',  color: '#0369A1', bg: '#E0F2FE' },
+  { value: 'sick',     label: 'Krank',     icon: '🤒',  color: '#B45309', bg: '#FEF3C7' },
+  { value: 'other',    label: 'Sonstiges', icon: '📝',  color: '#6B7280', bg: '#F3F4F6' },
+];
 
 function getMonday(d: Date) {
   const date = new Date(d);
@@ -39,7 +51,6 @@ export default function AvailabilityScreen() {
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Load wishes from Firestore whenever the week changes
   const loadWishes = useCallback(async () => {
     if (!userProfile) return;
     setLoadingWishes(true);
@@ -50,6 +61,8 @@ export default function AvailabilityScreen() {
       firestoreWishes.forEach(w => {
         mapped[w.date] = {
           wishFree: w.wishFree,
+          reason: w.reason,
+          note: w.note,
           timeWindows: w.timeWindows.map((tw, i) => ({ id: i.toString(), start: tw.start, end: tw.end })),
         };
       });
@@ -69,7 +82,20 @@ export default function AvailabilityScreen() {
 
   function toggleWishFree(iso: string) {
     const curr = getDayWish(iso);
-    setWishes(w => ({ ...w, [iso]: { ...curr, wishFree: !curr.wishFree } }));
+    setWishes(w => ({
+      ...w,
+      [iso]: { ...curr, wishFree: !curr.wishFree, reason: undefined, note: undefined },
+    }));
+  }
+
+  function setReason(iso: string, reason: WishReason) {
+    const curr = getDayWish(iso);
+    setWishes(w => ({ ...w, [iso]: { ...curr, reason } }));
+  }
+
+  function setNote(iso: string, note: string) {
+    const curr = getDayWish(iso);
+    setWishes(w => ({ ...w, [iso]: { ...curr, note } }));
   }
 
   function openAdd(iso: string) {
@@ -120,6 +146,8 @@ export default function AvailabilityScreen() {
             azubiName: userProfile.name,
             date: iso,
             wishFree: dw.wishFree,
+            ...(dw.reason ? { reason: dw.reason } : {}),
+            ...(dw.note?.trim() ? { note: dw.note.trim() } : {}),
             timeWindows: dw.timeWindows.map(tw => ({ start: tw.start, end: tw.end })),
             status: 'pending' as const,
           };
@@ -177,6 +205,41 @@ export default function AvailabilityScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {dw.wishFree && (
+                  <View style={styles.reasonArea}>
+                    {/* Reason pills */}
+                    <Text style={styles.reasonLabel}>Grund</Text>
+                    <View style={styles.reasonRow}>
+                      {REASONS.map(r => {
+                        const active = dw.reason === r.value;
+                        return (
+                          <TouchableOpacity
+                            key={r.value}
+                            style={[styles.reasonPill, { borderColor: active ? r.color : BRAND.border, backgroundColor: active ? r.bg : BRAND.background }]}
+                            onPress={() => setReason(iso, r.value)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.reasonPillIcon}>{r.icon}</Text>
+                            <Text style={[styles.reasonPillText, { color: active ? r.color : BRAND.textSecondary }]}>{r.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    {/* Note input */}
+                    <Text style={[styles.reasonLabel, { marginTop: 12 }]}>Anmerkung <Text style={{ fontWeight: '400' }}>(optional)</Text></Text>
+                    <TextInput
+                      style={styles.noteInput}
+                      value={dw.note ?? ''}
+                      onChangeText={v => setNote(iso, v)}
+                      placeholder="z.B. geplante Reise, Arzttermin..."
+                      placeholderTextColor={BRAND.textSecondary}
+                      multiline
+                      numberOfLines={2}
+                    />
+                  </View>
+                )}
 
                 {!dw.wishFree && (
                   <View style={styles.timeWindowArea}>
@@ -266,6 +329,23 @@ const styles = StyleSheet.create({
   wishFreeBtnActive: { backgroundColor: BRAND.primary },
   wishFreeBtnText: { fontSize: 12, fontWeight: '600', color: BRAND.primary },
   wishFreeBtnTextActive: { color: '#fff' },
+
+  // Reason + note area
+  reasonArea: { marginTop: 4 },
+  reasonLabel: { fontSize: 12, fontWeight: '700', color: BRAND.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
+  reasonRow: { flexDirection: 'row', columnGap: 8 },
+  reasonPill: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    columnGap: 5, paddingVertical: 9, borderRadius: 10, borderWidth: 1.5,
+  },
+  reasonPillIcon: { fontSize: 14 },
+  reasonPillText: { fontSize: 12, fontWeight: '700' },
+  noteInput: {
+    backgroundColor: BRAND.background, borderWidth: 1.5, borderColor: BRAND.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: BRAND.textPrimary, minHeight: 56, textAlignVertical: 'top',
+  },
+
   timeWindowArea: { marginTop: 4 },
   timeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, columnGap: 8 },
   timeBar: { width: 3, height: 28, borderRadius: 2, backgroundColor: BRAND.primary },
