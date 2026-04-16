@@ -17,6 +17,7 @@ export interface NewAzubiData {
 export interface InviteResult {
   uid: string;
   tempPassword: string;  // shown to admin so they can share it manually if email fails
+  clockPin: string;      // 6-digit PIN for the time-clock kiosk
 }
 
 /**
@@ -68,6 +69,9 @@ export async function inviteAzubi(data: NewAzubiData): Promise<InviteResult> {
   const uid: string = signUp.localId;
 
   // 2 — Write Firestore profile (admin SDK session supplies the auth token)
+  // Generate a unique 6-digit clock PIN (zero-padded string so leading zeros are preserved)
+  const clockPin = String(Math.floor(100000 + Math.random() * 900000));
+
   await setDoc(doc(db, 'users', uid), {
     name: data.name,
     email: data.email,
@@ -79,6 +83,7 @@ export async function inviteAzubi(data: NewAzubiData): Promise<InviteResult> {
     startDate: data.startDate,
     ...(data.phone ? { phone: data.phone } : {}),
     language: 'de',
+    clockPin,
   });
 
   // 3 — Attempt to send invite email (best-effort, don't throw if it fails)
@@ -91,5 +96,5 @@ export async function inviteAzubi(data: NewAzubiData): Promise<InviteResult> {
     },
   ).catch(() => {/* ignore — admin has the temp password as fallback */});
 
-  return { uid, tempPassword: tempPw };
+  return { uid, tempPassword: tempPw, clockPin };
 }
