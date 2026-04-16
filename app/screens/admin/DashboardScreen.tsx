@@ -1,19 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BRAND, ADMIN_PURPLE } from '../../constants/colors';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
 import { useAuth } from '../../context/AuthContext';
 import { getAllAzubis } from '../../services/users';
 import { countWishesByStatus } from '../../services/wishes';
+import { getTodayAttendance } from '../../services/timeEntries';
+import { countPendingCorrections } from '../../services/corrections';
+import { DailyTimeRecord } from '../../types';
+
+function currentlyActive(records: DailyTimeRecord[]): number {
+  return records.filter(r => {
+    const actions = new Set(r.entries.map(e => e.action));
+    return actions.has('start') && !actions.has('end');
+  }).length;
+}
 
 export default function DashboardScreen() {
   const { userProfile } = useAuth();
-  const firstName = userProfile?.name.split(' ')[0] ?? 'Admin';
+  const navigation = useNavigation<any>();
+  const firstName  = userProfile?.name.split(/\s|,/)[0] ?? 'Admin';
+  const facilityId = userProfile?.primaryFacilityId ?? '';
 
-  const [azubiCount, setAzubiCount] = useState<number | null>(null);
+  const [azubiCount,    setAzubiCount]    = useState<number | null>(null);
   const [pendingWishes, setPendingWishes] = useState<number | null>(null);
+  const [activeNow,     setActiveNow]     = useState<number | null>(null);
+  const [pendingCorr,   setPendingCorr]   = useState<number | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     getAllAzubis()
       .then(list => setAzubiCount(list.length))
       .catch(() => setAzubiCount(0));
@@ -21,17 +36,31 @@ export default function DashboardScreen() {
     countWishesByStatus()
       .then(counts => setPendingWishes(counts.pending))
       .catch(() => setPendingWishes(0));
-  }, []);
+
+    getTodayAttendance(facilityId)
+      .then(recs => setActiveNow(currentlyActive(recs)))
+      .catch(() => setActiveNow(0));
+
+    countPendingCorrections(facilityId)
+      .then(n => setPendingCorr(n))
+      .catch(() => setPendingCorr(0));
+  }, [facilityId]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const metrics = [
-    { label: 'Azubis aktiv', value: azubiCount, icon: '👥' },
-    { label: 'Wünsche offen', value: pendingWishes, icon: '✋' },
+    { label: 'Azubis aktiv',    value: azubiCount,    icon: '👥', color: ADMIN_PURPLE,  bg: ADMIN_PURPLE_LIGHT },
+    { label: 'Jetzt im Dienst', value: activeNow,     icon: '🟢', color: '#065F46',     bg: '#D1FAE5' },
+    { label: 'Wünsche offen',   value: pendingWishes, icon: '✋', color: '#92400E',     bg: '#FEF3C7' },
+    { label: 'Korrekturen',     value: pendingCorr,   icon: '⚠',  color: '#1E3A8A',    bg: '#DBEAFE' },
   ];
 
   const ACTIONS = [
-    { label: 'Dienstplan veröffentlichen', icon: '📋' },
-    { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋' },
-    { label: 'Neuen Azubi einladen', icon: '➕' },
+    { label: 'Anwesenheit anzeigen',                                   icon: '🟢', screen: 'adminAttendance' },
+    { label: 'Dienstplan veröffentlichen',                              icon: '📋', screen: 'shiftPublisher' },
+    { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋', screen: 'adminWishes' },
+    { label: `Korrekturen${pendingCorr ? ` (${pendingCorr})` : ''}`,   icon: '⚠',  screen: 'adminAttendance' },
+    { label: 'Neuen Azubi einladen',                                    icon: '➕', screen: 'trainees' },
   ];
 
   return (
@@ -40,20 +69,20 @@ export default function DashboardScreen() {
         <Text style={styles.greeting}>Hallo, {firstName} 👋</Text>
         <Text style={styles.subtitle}>Ausbildungsleitung · Übersicht</Text>
 
-        {/* Metric cards */}
+        {/* Metric cards — 2×2 grid */}
         <View style={styles.grid}>
           {metrics.map((m) => (
-            <View key={m.label} style={styles.card}>
+            <View key={m.label} style={[styles.card, { backgroundColor: m.bg }]}>
               <Text style={styles.cardIcon}>{m.icon}</Text>
               {m.value === null
-                ? <ActivityIndicator color={ADMIN_PURPLE} style={{ marginVertical: 6 }} />
-                : <Text style={styles.cardValue}>{m.value}</Text>}
-              <Text style={styles.cardLabel}>{m.label}</Text>
+                ? <ActivityIndicator color={m.color} style={{ marginVertical: 6 }} />
+                : <Text style={[styles.cardValue, { color: m.color }]}>{m.value}</Text>}
+              <Text style={[styles.cardLabel, { color: m.color }]}>{m.label}</Text>
             </View>
           ))}
         </View>
 
-        {/* Nächste Aktionen */}
+        {/* Next actions */}
         <Text style={styles.sectionTitle}>Nächste Aktionen</Text>
         <View style={styles.actionList}>
           {ACTIONS.map((a, i) => (
@@ -61,6 +90,7 @@ export default function DashboardScreen() {
               key={a.label}
               style={[styles.actionRow, i < ACTIONS.length - 1 && styles.actionRowBorder]}
               activeOpacity={0.7}
+              onPress={() => navigation.navigate(a.screen)}
             >
               <Text style={styles.actionIcon}>{a.icon}</Text>
               <Text style={styles.actionLabel}>{a.label}</Text>
@@ -74,34 +104,29 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BRAND.background },
-  scroll: { padding: 20, paddingBottom: 40 },
+  safe:     { flex: 1, backgroundColor: BRAND.background },
+  scroll:   { padding: 20, paddingBottom: 40 },
   greeting: { fontSize: 24, fontWeight: '800', color: BRAND.textPrimary },
   subtitle: { fontSize: 13, color: ADMIN_PURPLE, fontWeight: '600', marginTop: 4, marginBottom: 24 },
-  grid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    marginHorizontal: -6, marginBottom: 8,
-  },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   card: {
-    width: '50%',
-    paddingHorizontal: 6,
-    marginBottom: 12,
+    width: '47.5%', borderRadius: 14, padding: 14,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  cardIcon: { fontSize: 24, marginBottom: 8 },
-  cardValue: { fontSize: 28, fontWeight: '800', color: ADMIN_PURPLE },
-  cardLabel: { fontSize: 12, color: BRAND.textSecondary, fontWeight: '600', marginTop: 2 },
+  cardIcon:  { fontSize: 22, marginBottom: 6 },
+  cardValue: { fontSize: 30, fontWeight: '800' },
+  cardLabel: { fontSize: 11, fontWeight: '700', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.3 },
+
   sectionTitle: { fontSize: 16, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 12 },
   actionList: {
     backgroundColor: BRAND.surface, borderRadius: 14,
     shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6,
     shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
-  actionRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 16,
-  },
+  actionRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
   actionRowBorder: { borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  actionIcon: { fontSize: 18, marginRight: 12 },
-  actionLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: BRAND.textPrimary },
-  actionArrow: { fontSize: 22, color: BRAND.textSecondary, fontWeight: '300' },
+  actionIcon:      { fontSize: 18, marginRight: 12 },
+  actionLabel:     { flex: 1, fontSize: 14, fontWeight: '600', color: BRAND.textPrimary },
+  actionArrow:     { fontSize: 22, color: BRAND.textSecondary, fontWeight: '300' },
 });

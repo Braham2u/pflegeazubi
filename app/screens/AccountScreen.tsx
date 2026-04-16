@@ -8,6 +8,21 @@ import { useAuth } from '../context/AuthContext';
 import { BRAND } from '../constants/colors';
 import { Lang } from '../i18n';
 
+function PinDisplay({ pin }: { pin: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={pinSt.card}>
+      <View style={pinSt.left}>
+        <Text style={pinSt.label}>Stempeluhr-PIN</Text>
+        <Text style={pinSt.value}>{visible ? pin : '• '.repeat(pin.length).trim()}</Text>
+      </View>
+      <TouchableOpacity style={pinSt.btn} onPress={() => setVisible(v => !v)} activeOpacity={0.7}>
+        <Text style={pinSt.btnText}>{visible ? 'Verbergen' : 'Anzeigen'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.infoRow}>
@@ -63,6 +78,14 @@ export default function AccountScreen() {
             )}
           </View>
         ) : null}
+
+        {/* Time-clock PIN (azubi only) */}
+        {role === 'azubi' && (userProfile as any)?.clockPin && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Zeiterfassung</Text>
+            <PinDisplay pin={(userProfile as any).clockPin} />
+          </View>
+        )}
 
         {/* Language section */}
         <View style={styles.section}>
@@ -179,4 +202,13 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, fontWeight: '600', color: BRAND.textSecondary },
   logoutConfirmBtn: { backgroundColor: '#DC2626' },
   logoutConfirmText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+});
+
+const pinSt = StyleSheet.create({
+  card:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  left:  { flex: 1 },
+  label: { fontSize: 13, color: BRAND.textSecondary, marginBottom: 4 },
+  value: { fontSize: 22, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: 4 },
+  btn:   { backgroundColor: BRAND.primaryLight, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  btnText: { fontSize: 13, fontWeight: '700', color: BRAND.primary },
 });

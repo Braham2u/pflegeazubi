@@ -43,3 +43,55 @@ export interface AvailabilityWish {
   timeWindows: { start: string; end: string }[];
   status: 'pending' | 'approved' | 'rejected';
 }
+
+// ── Time Clock ──────────────────────────────────────────────────────────────
+
+export type ClockAction = 'start' | 'breakStart' | 'breakEnd' | 'end';
+
+export interface TimeEntry {
+  id: string;
+  azubiId: string;
+  azubiName: string;
+  facilityId: string;
+  date: string;           // YYYY-MM-DD
+  action: ClockAction;
+  timestamp: string;      // ISO datetime
+  shiftId?: string;
+  corrected?: boolean;
+  correctedBy?: string;
+  createdAt?: string;
+}
+
+export interface DailyTimeRecord {
+  date: string;
+  azubiId: string;
+  azubiName: string;
+  facilityId: string;
+  entries: TimeEntry[];
+  startAt?: string;       // ISO datetime
+  breakStartAt?: string;
+  breakEndAt?: string;
+  endAt?: string;
+  totalMinutes?: number;  // start → end
+  breakMinutes?: number;  // breakStart → breakEnd
+  netMinutes?: number;    // totalMinutes − breakMinutes
+  isComplete?: boolean;   // has both start and end
+  overtimeMinutes?: number;
+}
+
+// ── Correction Requests ─────────────────────────────────────────────────────
+
+export interface CorrectionRequest {
+  id: string;
+  azubiId: string;
+  azubiName: string;
+  facilityId: string;
+  date: string;           // YYYY-MM-DD
+  missingAction: ClockAction;
+  proposedTime: string;   // HH:MM
+  note: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  respondedBy?: string;
+  respondedAt?: string;
+}
