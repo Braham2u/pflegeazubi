@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Modal, Alert,
+  Modal, TextInput, ActivityIndicator,
 } from 'react-native';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../services/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -43,6 +45,8 @@ export default function AccountScreen() {
   const [pinVisible,     setPinVisible]     = useState(false);
   const [confirmLogout,  setConfirmLogout]  = useState(false);
   const [langModal,      setLangModal]      = useState(false);
+  const [pwModal,        setPwModal]        = useState(false);
+  const [pwStatus,       setPwStatus]       = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   const name     = userProfile?.name ?? '—';
   const email    = userProfile?.email ?? '—';
@@ -62,11 +66,22 @@ export default function AccountScreen() {
     .toUpperCase()
     .slice(0, 2);
 
-  const languages: { code: Lang; flag: string; label: string }[] = [
-    { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
-    { code: 'en', flag: '🇬🇧', label: 'English' },
+  const languages: { code: Lang; abbr: string; label: string }[] = [
+    { code: 'de', abbr: 'DE', label: 'Deutsch' },
+    { code: 'en', abbr: 'EN', label: 'English' },
   ];
   const currentLang = languages.find(l => l.code === lang) ?? languages[0];
+
+  const sendPasswordReset = async () => {
+    if (!auth || !email) return;
+    setPwStatus('sending');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setPwStatus('sent');
+    } catch {
+      setPwStatus('error');
+    }
+  };
 
   const isAdmin = role === 'admin';
   const accentColor = isAdmin ? ADMIN_PURPLE : BRAND.primary;
@@ -122,12 +137,12 @@ export default function AccountScreen() {
           <Text style={st.sectionTitle}>Einstellungen</Text>
           <SettingsRow
             label="Sprache"
-            value={`${currentLang.flag}  ${currentLang.label}`}
+            value={`${currentLang.abbr}  ${currentLang.label}`}
             onPress={() => setLangModal(true)}
           />
           <SettingsRow
             label="Passwort ändern"
-            onPress={() => Alert.alert('Passwort ändern', 'Funktion folgt in einer späteren Version.')}
+            onPress={() => { setPwStatus('idle'); setPwModal(true); }}
           />
           <SettingsRow
             label={t.account.logout}
@@ -164,13 +179,58 @@ export default function AccountScreen() {
                 onPress={() => { setLang(l.code); setLangModal(false); }}
                 activeOpacity={0.7}
               >
-                <Text style={st.langFlag}>{l.flag}</Text>
+                <View style={[st.langAbbrBadge, lang === l.code && { backgroundColor: accentColor }]}>
+                  <Text style={[st.langAbbr, lang === l.code && { color: '#fff' }]}>{l.abbr}</Text>
+                </View>
                 <Text style={[st.langLabel, lang === l.code && { color: accentColor, fontWeight: '700' }]}>{l.label}</Text>
                 {lang === l.code && <Text style={[st.langCheck, { color: accentColor }]}>✓</Text>}
               </TouchableOpacity>
             ))}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* ── Password reset modal ── */}
+      <Modal visible={pwModal} transparent animationType="fade" onRequestClose={() => setPwModal(false)}>
+        <View style={st.overlay}>
+          <View style={st.confirmCard}>
+            <Text style={st.pwTitle}>Passwort ändern</Text>
+            {pwStatus === 'idle' && (
+              <>
+                <Text style={st.pwBody}>
+                  Wir senden dir eine E-Mail an{'\n'}
+                  <Text style={{ fontWeight: '700', color: BRAND.textPrimary }}>{email}</Text>
+                  {'\n'}mit einem Link zum Zurücksetzen deines Passworts.
+                </Text>
+                <View style={st.confirmBtns}>
+                  <TouchableOpacity onPress={() => setPwModal(false)} style={[st.confirmBtn, st.cancelBtn]}>
+                    <Text style={st.cancelBtnText}>Abbrechen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={sendPasswordReset} style={[st.confirmBtn, { backgroundColor: accentColor }]}>
+                    <Text style={st.logoutConfirmText}>E-Mail senden</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+            {pwStatus === 'sending' && <ActivityIndicator color={accentColor} style={{ marginVertical: 20 }} />}
+            {pwStatus === 'sent' && (
+              <>
+                <Text style={st.pwBody}>✓ E-Mail wurde gesendet. Prüfe deinen Posteingang.</Text>
+                <TouchableOpacity onPress={() => setPwModal(false)} style={[st.confirmBtn, { backgroundColor: accentColor, alignSelf: 'stretch', marginTop: 16 }]}>
+                  <Text style={st.logoutConfirmText}>Schließen</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {pwStatus === 'error' && (
+              <>
+                <Text style={[st.pwBody, { color: '#DC2626' }]}>Fehler beim Senden. Bitte erneut versuchen.</Text>
+                <TouchableOpacity onPress={() => setPwModal(false)} style={[st.confirmBtn, st.cancelBtn, { alignSelf: 'stretch', marginTop: 16 }]}>
+                  <Text style={st.cancelBtnText}>Schließen</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
       </Modal>
 
       {/* ── Confirm logout modal ── */}
@@ -263,16 +323,21 @@ const st = StyleSheet.create({
   pinCloseBtn: { borderRadius: 12, paddingHorizontal: 32, paddingVertical: 12 },
   pinCloseBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
+  // Password modal
+  pwTitle: { fontSize: 17, fontWeight: '800', color: BRAND.textPrimary, marginBottom: 12 },
+  pwBody:  { fontSize: 14, color: BRAND.textSecondary, lineHeight: 22, marginBottom: 4, textAlign: 'center' },
+
   // Language sheet
   langSheet: {
     backgroundColor: BRAND.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, position: 'absolute', bottom: 0, left: 0, right: 0,
   },
   langSheetTitle: { fontSize: 17, fontWeight: '800', color: BRAND.textPrimary, marginBottom: 16 },
-  langRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 10, marginBottom: 4 },
-  langFlag:  { fontSize: 22, marginRight: 14 },
-  langLabel: { flex: 1, fontSize: 16, color: BRAND.textPrimary },
-  langCheck: { fontSize: 18, fontWeight: '700' },
+  langRow:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 10, marginBottom: 4 },
+  langAbbrBadge:  { width: 36, height: 36, borderRadius: 8, backgroundColor: BRAND.border, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  langAbbr:       { fontSize: 12, fontWeight: '800', color: BRAND.textSecondary },
+  langLabel:      { flex: 1, fontSize: 16, color: BRAND.textPrimary },
+  langCheck:      { fontSize: 18, fontWeight: '700' },
 
   // Logout confirm
   confirmCard:       { backgroundColor: BRAND.surface, borderRadius: 16, padding: 24, marginHorizontal: 32, width: '80%' },
