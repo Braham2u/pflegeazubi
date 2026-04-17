@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Alert, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
@@ -49,6 +49,7 @@ export default function TraineeListScreen() {
   const [form, setForm] = useState<NewAzubiData>(EMPTY_FORM);
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [inviteResult, setInviteResult] = useState<{ email: string; tempPassword: string; clockPin: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +69,7 @@ export default function TraineeListScreen() {
   function openInvite() {
     setForm(EMPTY_FORM);
     setInviteError('');
+    setInviteResult(null);
     setShowInvite(true);
   }
 
@@ -79,12 +81,8 @@ export default function TraineeListScreen() {
     setInviteError('');
     setInviting(true);
     try {
-      const { tempPassword } = await inviteAzubi({ ...form, phone: form.phone?.trim() || undefined });
-      setShowInvite(false);
-      Alert.alert(
-        'Konto erstellt',
-        `Das Konto wurde angelegt.\n\nE-Mail: ${form.email}\nTemp. Passwort: ${tempPassword}\n\nBitte teile diese Zugangsdaten per WhatsApp oder SMS mit. Das Passwort kann jederzeit über "Passwort vergessen" geändert werden.`,
-      );
+      const result = await inviteAzubi({ ...form, phone: form.phone?.trim() || undefined });
+      setInviteResult({ email: form.email, tempPassword: result.tempPassword, clockPin: result.clockPin });
       load();
     } catch (e: any) {
       setInviteError(e.message ?? 'Fehler beim Einladen.');
@@ -184,56 +182,89 @@ export default function TraineeListScreen() {
             <View style={[styles.sheet, { maxHeight: '92%' }]}>
               <View style={styles.sheetHandle} />
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <Text style={styles.sheetName}>Neuen Azubi einladen</Text>
-                <Text style={styles.inviteSubtitle}>
-                  Nach dem Anlegen erhält die Person eine E-Mail mit einem Link zum Einrichten ihres Passworts.
-                </Text>
+                {inviteResult ? (
+                  /* ── Success state ── */
+                  <>
+                    <View style={styles.successIcon}><Text style={{ fontSize: 36 }}>✓</Text></View>
+                    <Text style={[styles.sheetName, { textAlign: 'center' }]}>Konto erstellt!</Text>
+                    <Text style={[styles.inviteSubtitle, { textAlign: 'center' }]}>
+                      Teile diese Zugangsdaten per WhatsApp oder SMS mit.
+                    </Text>
+                    <View style={styles.credBox}>
+                      <View style={styles.credRow}>
+                        <Text style={styles.credLabel}>E-Mail</Text>
+                        <Text style={styles.credValue}>{inviteResult.email}</Text>
+                      </View>
+                      <View style={styles.credRow}>
+                        <Text style={styles.credLabel}>Temp. Passwort</Text>
+                        <Text style={styles.credValue}>{inviteResult.tempPassword}</Text>
+                      </View>
+                      <View style={[styles.credRow, { borderBottomWidth: 0 }]}>
+                        <Text style={styles.credLabel}>Stempel-PIN</Text>
+                        <Text style={[styles.credValue, { color: ADMIN_PURPLE, fontSize: 20, letterSpacing: 4 }]}>{inviteResult.clockPin}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.credHint}>
+                      Das Passwort kann jederzeit über "Passwort vergessen" geändert werden.
+                    </Text>
+                    <TouchableOpacity style={styles.sendBtn} onPress={() => setShowInvite(false)} activeOpacity={0.8}>
+                      <Text style={styles.sendBtnText}>Fertig</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  /* ── Form state ── */
+                  <>
+                    <Text style={styles.sheetName}>Neuen Azubi einladen</Text>
+                    <Text style={styles.inviteSubtitle}>
+                      Nach dem Anlegen erhält die Person eine E-Mail mit einem Link zum Einrichten ihres Passworts.
+                    </Text>
 
-                <Field label="Vollständiger Name *" value={form.name} onChangeText={v => setField('name', v)} placeholder="Vorname Nachname" keyboardType="default" />
-                <Field label="E-Mail-Adresse *" value={form.email} onChangeText={v => setField('email', v)} placeholder="name@beispiel.de" keyboardType="email-address" />
-                <Field label="Geburtsdatum *" value={form.dateOfBirth} onChangeText={v => setField('dateOfBirth', v)} placeholder="TT.MM.JJJJ" hint="Format: 15.03.2005" />
-                <Field label="Ausbildungsbeginn *" value={form.startDate} onChangeText={v => setField('startDate', v)} placeholder="TT.MM.JJJJ" hint="Format: 01.09.2024" />
+                    <Field label="Vollständiger Name *" value={form.name} onChangeText={v => setField('name', v)} placeholder="Vorname Nachname" keyboardType="default" />
+                    <Field label="E-Mail-Adresse *" value={form.email} onChangeText={v => setField('email', v)} placeholder="name@beispiel.de" keyboardType="email-address" />
+                    <Field label="Geburtsdatum *" value={form.dateOfBirth} onChangeText={v => setField('dateOfBirth', v)} placeholder="TT.MM.JJJJ" hint="Format: 15.03.2005" />
+                    <Field label="Ausbildungsbeginn *" value={form.startDate} onChangeText={v => setField('startDate', v)} placeholder="TT.MM.JJJJ" hint="Format: 01.09.2024" />
 
-                {/* Training year picker */}
-                <View style={field.wrap}>
-                  <Text style={field.label}>Ausbildungsjahr *</Text>
-                  <View style={styles.yearRow}>
-                    {([1, 2, 3] as const).map(y => (
-                      <TouchableOpacity
-                        key={y}
-                        style={[styles.yearPill, form.ausbildungYear === y && styles.yearPillActive]}
-                        onPress={() => setField('ausbildungYear', y)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.yearPillText, form.ausbildungYear === y && styles.yearPillTextActive]}>
-                          {y}. Jahr
-                        </Text>
+                    <View style={field.wrap}>
+                      <Text style={field.label}>Ausbildungsjahr *</Text>
+                      <View style={styles.yearRow}>
+                        {([1, 2, 3] as const).map(y => (
+                          <TouchableOpacity
+                            key={y}
+                            style={[styles.yearPill, form.ausbildungYear === y && styles.yearPillActive]}
+                            onPress={() => setField('ausbildungYear', y)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.yearPillText, form.ausbildungYear === y && styles.yearPillTextActive]}>
+                              {y}. Jahr
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    <Field
+                      label="Vertragsstunden / Woche *"
+                      value={form.contractedHoursPerWeek.toString()}
+                      onChangeText={v => setField('contractedHoursPerWeek', parseInt(v) || 40)}
+                      placeholder="40"
+                      keyboardType="number-pad"
+                    />
+                    <Field label="Telefon (optional)" value={form.phone ?? ''} onChangeText={v => setField('phone', v)} placeholder="+49 123 456789" keyboardType="phone-pad" />
+
+                    {inviteError ? <Text style={styles.inviteError}>{inviteError}</Text> : null}
+
+                    <View style={styles.inviteBtns}>
+                      <TouchableOpacity style={styles.cancelInviteBtn} onPress={() => setShowInvite(false)} activeOpacity={0.8}>
+                        <Text style={styles.cancelInviteBtnText}>Abbrechen</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <Field
-                  label="Vertragsstunden / Woche *"
-                  value={form.contractedHoursPerWeek.toString()}
-                  onChangeText={v => setField('contractedHoursPerWeek', parseInt(v) || 40)}
-                  placeholder="40"
-                  keyboardType="number-pad"
-                />
-                <Field label="Telefon (optional)" value={form.phone ?? ''} onChangeText={v => setField('phone', v)} placeholder="+49 123 456789" keyboardType="phone-pad" />
-
-                {inviteError ? <Text style={styles.inviteError}>{inviteError}</Text> : null}
-
-                <View style={styles.inviteBtns}>
-                  <TouchableOpacity style={styles.cancelInviteBtn} onPress={() => setShowInvite(false)} activeOpacity={0.8}>
-                    <Text style={styles.cancelInviteBtnText}>Abbrechen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.sendBtn, inviting && { opacity: 0.6 }]} onPress={handleInvite} disabled={inviting} activeOpacity={0.8}>
-                    {inviting
-                      ? <ActivityIndicator color="#fff" />
-                      : <Text style={styles.sendBtnText}>Einladung senden</Text>}
-                  </TouchableOpacity>
-                </View>
+                      <TouchableOpacity style={[styles.sendBtn, inviting && { opacity: 0.6 }]} onPress={handleInvite} disabled={inviting} activeOpacity={0.8}>
+                        {inviting
+                          ? <ActivityIndicator color="#fff" />
+                          : <Text style={styles.sendBtnText}>Einladung senden</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -314,6 +345,12 @@ const styles = StyleSheet.create({
   yearPillText: { fontSize: 13, fontWeight: '600', color: BRAND.textSecondary },
   yearPillTextActive: { color: ADMIN_PURPLE },
   inviteError: { color: '#DC2626', fontSize: 13, marginBottom: 12 },
+  successIcon: { alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: '#D1FAE5', alignSelf: 'center', marginBottom: 16 },
+  credBox: { backgroundColor: BRAND.background, borderRadius: 12, marginVertical: 16, borderWidth: 1, borderColor: BRAND.border },
+  credRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: BRAND.border },
+  credLabel: { fontSize: 12, color: BRAND.textSecondary, fontWeight: '600' },
+  credValue: { fontSize: 14, color: BRAND.textPrimary, fontWeight: '700', flex: 1, textAlign: 'right' },
+  credHint: { fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
   inviteBtns: { flexDirection: 'row', columnGap: 12, marginTop: 8, marginBottom: 8 },
   cancelInviteBtn: {
     flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
