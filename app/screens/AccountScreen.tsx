@@ -135,11 +135,13 @@ export default function AccountScreen() {
         {/* ── Settings section ── */}
         <View style={st.section}>
           <Text style={st.sectionTitle}>Einstellungen</Text>
-          <SettingsRow
-            label="Sprache"
-            value={`${currentLang.abbr}  ${currentLang.label}`}
-            onPress={() => setLangModal(true)}
-          />
+          {!isAdmin && (
+            <SettingsRow
+              label="Sprache"
+              value={`${currentLang.abbr}  ${currentLang.label}`}
+              onPress={() => setLangModal(true)}
+            />
+          )}
           <SettingsRow
             label="Passwort ändern"
             onPress={() => { setPwStatus('idle'); setPwModal(true); }}

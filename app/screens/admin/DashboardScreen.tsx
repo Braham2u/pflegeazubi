@@ -56,11 +56,11 @@ export default function DashboardScreen() {
   ];
 
   const ACTIONS = [
-    { label: 'Anwesenheit anzeigen',                                   icon: '🟢', screen: 'adminAttendance' },
-    { label: 'Dienstplan veröffentlichen',                              icon: '📋', screen: 'shiftPublisher' },
+    { label: 'Anwesenheit anzeigen',                                        icon: '🟢', screen: 'adminAttendance' },
+    { label: 'Dienstplan veröffentlichen',                                   icon: '📋', screen: 'shiftPublisher' },
     { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋', screen: 'adminWishes' },
-    { label: `Korrekturen${pendingCorr ? ` (${pendingCorr})` : ''}`,   icon: '⚠',  screen: 'adminAttendance' },
-    { label: 'Neuen Azubi einladen',                                    icon: '➕', screen: 'trainees' },
+    { label: `Korrekturen${pendingCorr ? ` (${pendingCorr})` : ''}`,        icon: '⚠',  screen: 'adminAttendance' },
+    { label: 'Neuen Azubi einladen',                                         icon: '➕', screen: 'trainees' },
   ];
 
   return (
@@ -69,7 +69,6 @@ export default function DashboardScreen() {
         <Text style={styles.greeting}>Hallo, {firstName} 👋</Text>
         <Text style={styles.subtitle}>Ausbildungsleitung · Übersicht</Text>
 
-        {/* Metric cards — 2×2 grid */}
         <View style={styles.grid}>
           {metrics.map((m) => (
             <View key={m.label} style={[styles.card, { backgroundColor: m.bg }]}>
@@ -82,7 +81,6 @@ export default function DashboardScreen() {
           ))}
         </View>
 
-        {/* Next actions */}
         <Text style={styles.sectionTitle}>Nächste Aktionen</Text>
         <View style={styles.actionList}>
           {ACTIONS.map((a, i) => (
