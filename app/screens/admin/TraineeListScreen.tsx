@@ -178,9 +178,14 @@ export default function TraineeListScreen() {
       {/* ── Invite modal ── */}
       <Modal visible={showInvite} transparent animationType="slide" onRequestClose={() => setShowInvite(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <View style={styles.overlay}>
-            <View style={[styles.sheet, { maxHeight: '92%' }]}>
-              <View style={styles.sheetHandle} />
+          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowInvite(false)}>
+            <TouchableOpacity style={[styles.sheet, { maxHeight: '92%' }]} activeOpacity={1} onPress={e => e.stopPropagation?.()}>
+              <View style={styles.inviteSheetTop}>
+                <View style={styles.sheetHandle} />
+                <TouchableOpacity onPress={() => setShowInvite(false)} style={styles.closeBtn}>
+                  <Text style={styles.closeBtnText}>✕</Text>
+                </TouchableOpacity>
+              </View>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 {inviteResult ? (
                   /* ── Success state ── */
@@ -266,8 +271,8 @@ export default function TraineeListScreen() {
                   </>
                 )}
               </ScrollView>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
@@ -351,6 +356,9 @@ const styles = StyleSheet.create({
   credLabel: { fontSize: 12, color: BRAND.textSecondary, fontWeight: '600' },
   credValue: { fontSize: 14, color: BRAND.textPrimary, fontWeight: '700', flex: 1, textAlign: 'right' },
   credHint: { fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
+  inviteSheetTop: { alignItems: 'center', marginBottom: 16 },
+  closeBtn: { position: 'absolute', right: 0, top: -8, padding: 8 },
+  closeBtnText: { fontSize: 18, color: BRAND.textSecondary, fontWeight: '600' },
   inviteBtns: { flexDirection: 'row', columnGap: 12, marginTop: 8, marginBottom: 8 },
   cancelInviteBtn: {
     flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
