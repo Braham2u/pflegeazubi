@@ -5,15 +5,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loginWithEmail, resetPassword } from '../services/auth';
-import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { BRAND } from '../constants/colors';
-import { DEMO_ACCOUNTS } from '../data/demoAccounts';
-import { isFirebaseConfigured } from '../services/firebase';
 
 export default function LoginScreen() {
   const { t, lang, setLang } = useLang();
-  const { loginWithDemoUser } = useAuth();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
@@ -43,19 +39,6 @@ export default function LoginScreen() {
       return;
     }
     setError('');
-
-    // Demo accounts — only shown in dev/non-Firebase mode
-    if (!isFirebaseConfigured) {
-      const demo = DEMO_ACCOUNTS[trimmedEmail];
-      if (demo && demo.password === password) {
-        loginWithDemoUser(demo.user);
-        return;
-      }
-      setError(t.login.errorCredentials);
-      return;
-    }
-
-    // Real Firebase login
     setLoading(true);
     try {
       await loginWithEmail(trimmedEmail, password);
@@ -103,7 +86,6 @@ export default function LoginScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Anmelden</Text>
 
-            {/* Email */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t.login.email}</Text>
               <View style={[styles.inputWrap, error ? styles.inputWrapError : null]}>
@@ -121,7 +103,6 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Password */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t.login.password}</Text>
               <View style={[styles.inputWrap, error ? styles.inputWrapError : null]}>
@@ -170,15 +151,6 @@ export default function LoginScreen() {
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Demo hint — only shown when Firebase is NOT configured */}
-          {!isFirebaseConfigured && (
-            <View style={styles.demoHint}>
-              <Text style={styles.demoHintText}>
-                Demo: admin@pflegeazubi.de / Admin123
-              </Text>
-            </View>
-          )}
 
           <Text style={styles.footerNote}>PflegeAzubi · Ausbildungsmanagement</Text>
 
@@ -238,10 +210,7 @@ const styles = StyleSheet.create({
   },
   inputWrapError: { borderColor: '#DC2626' },
   inputIcon: { fontSize: 14, marginRight: 10, opacity: 0.5 },
-  input: {
-    flex: 1, fontSize: 15, color: BRAND.textPrimary,
-    height: '100%',
-  },
+  input: { flex: 1, fontSize: 15, color: BRAND.textPrimary, height: '100%' },
   showBtn:     { paddingLeft: 8, paddingVertical: 4 },
   showBtnText: { fontSize: 12, fontWeight: '600', color: BRAND.primary },
 
@@ -261,13 +230,6 @@ const styles = StyleSheet.create({
   },
   loginBtnDisabled: { opacity: 0.6, shadowOpacity: 0 },
   loginBtnText:     { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
-
-  demoHint: {
-    backgroundColor: '#FEF3C7', borderRadius: 10,
-    padding: 12, alignItems: 'center',
-    marginBottom: 12,
-  },
-  demoHintText: { fontSize: 12, color: '#92400E', fontWeight: '600' },
 
   forgotBtn: { alignItems: 'center', paddingTop: 14 },
   forgotText: { fontSize: 13, fontWeight: '600', color: BRAND.primary },
