@@ -4,6 +4,7 @@ import {
   Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
 import { getAllAzubis } from '../../services/users';
 import { inviteAzubi, NewAzubiData } from '../../services/invite';
@@ -42,6 +43,7 @@ const EMPTY_FORM: NewAzubiData = {
 };
 
 export default function TraineeListScreen() {
+  const navigation = useNavigation();
   const [azubis, setAzubis] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<User | null>(null);
@@ -99,6 +101,9 @@ export default function TraineeListScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.titleRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+            <Text style={styles.backBtnText}>‹ Zurück</Text>
+          </TouchableOpacity>
           <Text style={styles.title}>Azubis</Text>
           <TouchableOpacity style={styles.inviteBtn} onPress={openInvite} activeOpacity={0.8}>
             <Text style={styles.inviteBtnText}>+ Einladen</Text>
@@ -294,7 +299,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BRAND.background },
   scroll: { padding: 20, paddingBottom: 40 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: '700', color: BRAND.textPrimary },
+  backBtn: { paddingRight: 12 },
+  backBtnText: { fontSize: 16, color: ADMIN_PURPLE, fontWeight: '600' },
+  title: { fontSize: 24, fontWeight: '700', color: BRAND.textPrimary, flex: 1 },
   inviteBtn: { backgroundColor: ADMIN_PURPLE, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   inviteBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   emptyState: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
