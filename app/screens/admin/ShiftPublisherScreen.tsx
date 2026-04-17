@@ -35,6 +35,13 @@ const SHIFT_TIMES: Record<ShiftType, string> = {
 
 const DAY_SHORTS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+const START_DEFAULTS: Record<ShiftType, string> = {
+  early: '06:00', late: '14:00', night: '22:00', school: '08:00', free: '', external: '08:00',
+};
+const END_DEFAULTS: Record<ShiftType, string> = {
+  early: '14:00', late: '22:00', night: '06:00', school: '16:00', free: '', external: '16:00',
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getMonday(d: Date) {
@@ -68,7 +75,14 @@ function locationsFor(st: ShiftType): CareLocation[] {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-type EditState = { azubiId: string; iso: string; pendingShift: ShiftType | null };
+type EditState = {
+  azubiId: string;
+  iso: string;
+  step: 1 | 2 | 3;
+  pendingShift: ShiftType | null;
+  pendingStart: string;
+  pendingEnd: string;
+};
 
 export default function ShiftPublisherScreen() {
   const today = new Date();
@@ -110,27 +124,43 @@ export default function ShiftPublisherScreen() {
   const editingAzubi = azubis.find(a => a.id === editing?.azubiId);
   const selectedLoc = LOCATIONS.find(l => l.id === selectedLocId) ?? null;
   const currentAssignment = editing ? plan[editing.azubiId]?.[editing.iso] : null;
-  const isStep2 = editing?.pendingShift != null;
+  const step = editing?.step ?? 1;
 
   function openEdit(azubiId: string, iso: string) {
-    setEditing({ azubiId, iso, pendingShift: null });
+    setEditing({ azubiId, iso, step: 1, pendingShift: null, pendingStart: '', pendingEnd: '' });
   }
 
   function selectShiftType(st: ShiftType) {
     if (!editing) return;
     if (st === 'free') {
-      // Free day — no location needed, save immediately
       setPlan(p => ({ ...p, [editing.azubiId]: { ...p[editing.azubiId], [editing.iso]: { shiftType: 'free', locationId: '' } } }));
       setEditing(null);
     } else {
-      // Advance to location step
-      setEditing(e => e ? { ...e, pendingShift: st } : null);
+      setEditing(e => e ? { ...e, step: 2, pendingShift: st, pendingStart: START_DEFAULTS[st], pendingEnd: END_DEFAULTS[st] } : null);
     }
+  }
+
+  function adjustTime(field: 'start' | 'end', delta: number) {
+    setEditing(e => {
+      if (!e) return e;
+      const cur = field === 'start' ? e.pendingStart : e.pendingEnd;
+      if (!cur) return e;
+      const [h, m] = cur.split(':').map(Number);
+      const totalMins = ((h * 60 + m + delta * 30) + 1440) % 1440;
+      const nh = Math.floor(totalMins / 60);
+      const nm = totalMins % 60;
+      const val = `${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+      return field === 'start' ? { ...e, pendingStart: val } : { ...e, pendingEnd: val };
+    });
+  }
+
+  function confirmTime() {
+    setEditing(e => e ? { ...e, step: 3 } : null);
   }
 
   function selectLocation(locationId: string) {
     if (!editing?.pendingShift) return;
-    setPlan(p => ({ ...p, [editing.azubiId]: { ...p[editing.azubiId], [editing.iso]: { shiftType: editing.pendingShift!, locationId } } }));
+    setPlan(p => ({ ...p, [editing.azubiId]: { ...p[editing.azubiId], [editing.iso]: { shiftType: editing.pendingShift!, locationId, startTime: editing.pendingStart, endTime: editing.pendingEnd } } }));
     setEditing(null);
   }
 
@@ -252,9 +282,9 @@ export default function ShiftPublisherScreen() {
                       <Text style={[styles.shiftCellText, { color: colors.text }]}>
                         {SHIFT_ABBR[a.shiftType]}
                       </Text>
-                      {SHIFT_TIMES[a.shiftType] ? (
+                      {(a.startTime || SHIFT_TIMES[a.shiftType]) ? (
                         <Text style={[styles.shiftCellTime, { color: colors.text }]}>
-                          {SHIFT_TIMES[a.shiftType]}
+                          {a.startTime ? a.startTime.slice(0,5) : SHIFT_TIMES[a.shiftType]}
                         </Text>
                       ) : null}
                     </>
@@ -359,7 +389,7 @@ export default function ShiftPublisherScreen() {
           >
             <View style={styles.sheetHandle} />
 
-            {!isStep2 ? (
+            {step === 1 && (
               /* ── Step 1: pick shift type ── */
               <>
                 <Text style={styles.sheetTitle}>
@@ -370,7 +400,6 @@ export default function ShiftPublisherScreen() {
                     : ''}
                 </Text>
                 <Text style={styles.stepLabel}>Schritt 1 — Diensttyp wählen</Text>
-
                 {SHIFT_OPTIONS.map(st => {
                   const c = SHIFT_COLORS[st];
                   const isCurrent = currentAssignment?.shiftType === st;
@@ -390,26 +419,64 @@ export default function ShiftPublisherScreen() {
                   );
                 })}
               </>
-            ) : (
-              /* ── Step 2: pick location ── */
+            )}
+
+            {step === 2 && (
+              /* ── Step 2: pick times ── */
               <>
-                <TouchableOpacity
-                  style={styles.backBtn}
-                  onPress={() => setEditing(e => e ? { ...e, pendingShift: null } : null)}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={styles.backBtn} onPress={() => setEditing(e => e ? { ...e, step: 1, pendingShift: null, pendingStart: '', pendingEnd: '' } : null)} activeOpacity={0.7}>
                   <Text style={styles.backBtnText}>‹ Zurück</Text>
                 </TouchableOpacity>
-
                 <Text style={styles.sheetTitle}>
-                  {editingAzubi?.name.split(' ')[0]}
-                  {'  ·  '}
-                  {SHIFT_LABELS[editing!.pendingShift!]}
-                  {'  '}
-                  {SHIFT_TIMES[editing!.pendingShift!] ? `(${SHIFT_TIMES[editing!.pendingShift!]} Uhr)` : ''}
+                  {editingAzubi?.name.split(' ')[0]}{'  ·  '}{SHIFT_LABELS[editing!.pendingShift!]}
                 </Text>
-                <Text style={styles.stepLabel}>Schritt 2 — Standort wählen</Text>
+                <Text style={styles.stepLabel}>Schritt 2 — Uhrzeit anpassen</Text>
 
+                <View style={styles.timeRow}>
+                  <Text style={styles.timeLabel}>Beginn</Text>
+                  <View style={styles.timePicker}>
+                    <TouchableOpacity style={styles.timeBtn} onPress={() => adjustTime('start', -1)} activeOpacity={0.7}>
+                      <Text style={styles.timeBtnText}>‹</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.timeValue}>{editing!.pendingStart}</Text>
+                    <TouchableOpacity style={styles.timeBtn} onPress={() => adjustTime('start', 1)} activeOpacity={0.7}>
+                      <Text style={styles.timeBtnText}>›</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.timeRow}>
+                  <Text style={styles.timeLabel}>Ende</Text>
+                  <View style={styles.timePicker}>
+                    <TouchableOpacity style={styles.timeBtn} onPress={() => adjustTime('end', -1)} activeOpacity={0.7}>
+                      <Text style={styles.timeBtnText}>‹</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.timeValue}>{editing!.pendingEnd}</Text>
+                    <TouchableOpacity style={styles.timeBtn} onPress={() => adjustTime('end', 1)} activeOpacity={0.7}>
+                      <Text style={styles.timeBtnText}>›</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <Text style={styles.timeHint}>‹ › wechselt in 30-Minuten-Schritten</Text>
+
+                <TouchableOpacity style={styles.confirmTimeBtn} onPress={confirmTime} activeOpacity={0.8}>
+                  <Text style={styles.confirmTimeBtnText}>Weiter → Standort wählen</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {step === 3 && (
+              /* ── Step 3: pick location ── */
+              <>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setEditing(e => e ? { ...e, step: 2 } : null)} activeOpacity={0.7}>
+                  <Text style={styles.backBtnText}>‹ Zurück</Text>
+                </TouchableOpacity>
+                <Text style={styles.sheetTitle}>
+                  {editingAzubi?.name.split(' ')[0]}{'  ·  '}{SHIFT_LABELS[editing!.pendingShift!]}
+                  {'  '}{editing!.pendingStart?.trim()} – {editing!.pendingEnd?.trim()} Uhr
+                </Text>
+                <Text style={styles.stepLabel}>Schritt 3 — Standort wählen</Text>
                 {locationsFor(editing!.pendingShift!).map(loc => {
                   const isCurrent = currentAssignment?.locationId === loc.id;
                   return (
@@ -540,9 +607,20 @@ const styles = StyleSheet.create({
   optionTime: { fontSize: 13, fontWeight: '600', opacity: 0.75 },
   optionCheck: { fontSize: 14, fontWeight: '700' },
 
-  // Back button (step 2)
+  // Back button
   backBtn: { marginBottom: 16 },
   backBtnText: { fontSize: 14, fontWeight: '600', color: ADMIN_PURPLE },
+
+  // Time picker (step 2)
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  timeLabel: { fontSize: 15, fontWeight: '600', color: BRAND.textPrimary, width: 60 },
+  timePicker: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.background, borderRadius: 12, borderWidth: 1.5, borderColor: BRAND.border, overflow: 'hidden' },
+  timeBtn: { paddingHorizontal: 18, paddingVertical: 12 },
+  timeBtnText: { fontSize: 22, color: ADMIN_PURPLE, fontWeight: '700' },
+  timeValue: { fontSize: 22, fontWeight: '800', color: BRAND.textPrimary, minWidth: 72, textAlign: 'center' },
+  timeHint: { fontSize: 11, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 20 },
+  confirmTimeBtn: { backgroundColor: ADMIN_PURPLE, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  confirmTimeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   // Location options (step 2)
   locationOption: {

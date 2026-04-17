@@ -34,7 +34,7 @@ export const ADMIN_AZUBIS = [
 
 // ─── Plan types ──────────────────────────────────────────────────────────────
 
-export type DayAssignment = { shiftType: ShiftType; locationId: string };
+export type DayAssignment = { shiftType: ShiftType; locationId: string; startTime?: string; endTime?: string };
 export type AzubiPlan = Record<string, DayAssignment>; // ISO-date → assignment
 
 // ─── Shift time defaults ─────────────────────────────────────────────────────
@@ -72,8 +72,8 @@ function assignmentToShift(azubiId: string, iso: string, a: DayAssignment): Shif
     azubiId,
     date: iso,
     shiftType: a.shiftType,
-    startTime: START[a.shiftType],
-    endTime: END[a.shiftType],
+    startTime: a.startTime ?? START[a.shiftType],
+    endTime: a.endTime ?? END[a.shiftType],
     breakMinutes: BREAK[a.shiftType],
     facilityId: loc?.id ?? null,
     facilityName: loc?.facility ?? '',
