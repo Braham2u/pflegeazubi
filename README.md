@@ -4,16 +4,67 @@ A mobile-first scheduling app built for nursing Ausbildung trainees (Azubis) in 
 
 ---
 
-## Quick Start (Docker)
+## Live App
+
+| | URL |
+|---|---|
+| **Web App** | [https://pflegeazubi.web.app](https://pflegeazubi.web.app) |
+| **Kiosk Terminal** | [https://pflegeazubi.web.app/?kiosk=1](https://pflegeazubi.web.app/?kiosk=1) |
+
+The kiosk URL is a standalone clock-in terminal (no login required) designed to run on a shared tablet at the facility entrance. Trainees enter their 6-digit PIN to clock in, start/end breaks, and clock out.
+
+---
+
+## Features
+
+### Trainee (Azubi)
+- Weekly shift plan (Dienstplan) with color-coded shift types
+- Working time tracker with contracted vs. actual hours
+- Availability wish book (Wunschbuch) — request days off or preferred timeframes
+- Profile page with 6-digit clock PIN display and language switcher (DE / EN)
+- Correction requests for missing timestamps
+
+### Admin (Ausbildungsleitung)
+- Dashboard with live metrics — active trainees, on duty, open wishes, corrections
+- Shift publisher — assign shifts to trainees with custom start/end times (3-step flow)
+- Live attendance board — see who is clocked in, on break, or finished
+- Correction approval — review and approve/reject trainee time correction requests
+- Trainee management — invite new trainees via email with auto-generated temp password and clock PIN
+- Wish review — view and manage trainee availability requests
+
+### Kiosk Terminal
+- Standalone PIN-pad clock-in terminal at `/?kiosk=1`
+- Trainees enter 6-digit PIN → select action (Start Work / Leave / Break)
+- Timestamp summary shown after each clock action
+- Auto-resets after 15 seconds
+- No access to admin features — fully isolated
+
+---
+
+## Quick Start (Local)
 
 ```bash
-git clone https://github.com/your-username/pflegeazubi.git
+git clone https://github.com/Braham2u/pflegeazubi.git
 cd pflegeazubi
-docker-compose up
+npm install
 ```
 
-Then open [http://localhost:8081](http://localhost:8081) in your browser.
-Click **"Demo ansehen"** on the login screen to explore without Firebase credentials.
+Create a `.env` file in the project root with your Firebase credentials:
+
+```
+EXPO_PUBLIC_FIREBASE_API_KEY=your_key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+Then run:
+
+```bash
+npx expo start --web
+```
 
 ---
 
@@ -21,9 +72,16 @@ Click **"Demo ansehen"** on the login screen to explore without Firebase credent
 
 1. Click **Code → Codespaces → Create codespace on main**
 2. Wait for the container to build and `npm install` to finish
-3. Codespaces will forward **port 8081** automatically — click the pop-up to open the app in your browser
+3. Add your Firebase credentials as Codespaces secrets (Settings → Codespaces → Secrets)
+4. Codespaces will forward **port 8081** automatically — click the pop-up to open the app
 
-> The `devcontainer-simple.json` in `.devcontainer/` is the recommended config for Codespaces — it uses the official Microsoft Node 20 image and starts Expo web automatically.
+---
+
+## Deploying Updates
+
+```bash
+npx expo export -p web && firebase deploy --only hosting
+```
 
 ---
 
@@ -31,14 +89,13 @@ Click **"Demo ansehen"** on the login screen to explore without Firebase credent
 
 | Layer | Technology |
 |---|---|
-| Mobile app | React Native with Expo (iOS + Android + Web) |
+| Mobile / Web app | React Native with Expo (iOS + Android + Web) |
 | Auth | Firebase Authentication (email/password) |
 | Database | Firebase Firestore (real-time) |
-| Push notifications | Expo Push Notification Service |
+| Hosting | Firebase Hosting |
 | Language | TypeScript |
-| Navigation | React Navigation (bottom tabs) |
-| Containerisation | Docker + Docker Compose |
-| Dev environment | GitHub Codespaces / VS Code devcontainer |
+| Navigation | React Navigation (bottom tabs + native stack) |
+| Dev environment | GitHub Codespaces / VS Code |
 
 ---
 
@@ -59,7 +116,7 @@ Every significant feature begins with a written brief. Claude Code is run in Pla
 The project brief document (`pflegeazubi_brief.pdf`) is attached at the start of every new Claude Code session. Because Claude Code does not persist conversation history between sessions, the brief re-establishes full context — data model, role system, feature list, build order, and design decisions — so the AI can continue without re-explaining from scratch.
 
 **Async development**
-Claude Code can be given a well-defined task (e.g. "build the AvailabilityScreen with add/edit timeframes per the brief") and runs largely unattended while Abraham works on user research, survey outreach, or thesis writing. Results are reviewed and tested before merging.
+Claude Code can be given a well-defined task and runs largely unattended while Abraham works on user research, survey outreach, or thesis writing. Results are reviewed and tested before merging.
 
 ---
 
@@ -67,14 +124,12 @@ Claude Code can be given a well-defined task (e.g. "build the AvailabilityScreen
 
 | Dimension | How this project addresses it |
 |---|---|
-| **Performance** | Expo web bundle is lean; Firestore real-time listeners fetch only the current user's data; dummy data mode removes all network dependency for demos |
-| **Dev Time** | Full scaffold + four screens + auth + i18n built in a single session using Claude Code; estimated 10× faster than solo development |
-| **Cost** | Firebase Spark (free tier) covers the entire MVP; no backend server; Docker image uses node:20-alpine to minimise size |
-| **Accuracy** | Domain logic (shift types, Berufsschule inline display, DSGVO role isolation) sourced directly from project brief written by a domain expert |
-| **Usability** | Color-coded shift types, German-first UI with English toggle, invite-only onboarding, and demo mode lower the barrier for non-technical evaluators |
-| **Security** | Invite-based onboarding prevents open registration; role stored server-side in Firestore, never self-selected; `.env` gitignored; DSGVO access control isolates each Azubi's data |
-| **Scalability** | Firestore scales horizontally; Träger → Einrichtung → Bereich hierarchy supports single homes through large chains (Caritas, BRK, AWO); Expo EAS for App Store deployment |
-| **Extensibility** | Clean separation of services, screens, types, and context; i18n system makes adding Arabic/Tagalog/Hindi straightforward; production stack (Supabase + Railway) documented in brief |
-| **Traceability** | Every feature maps to a numbered step in the build order; AI session context restored via brief at session start; git history shows incremental feature delivery |
-
-
+| **Performance** | Expo web bundle is lean; Firestore queries fetch only the current user's data |
+| **Dev Time** | Full scaffold + all screens + auth + time-clock system built with Claude Code; estimated 10× faster than solo development |
+| **Cost** | Firebase Spark (free tier) covers the entire MVP including hosting; no backend server |
+| **Accuracy** | Domain logic (shift types, ArbZG break rules, DSGVO role isolation) sourced directly from project brief written by a domain expert |
+| **Usability** | Color-coded shift types, German-first UI with English toggle, invite-only onboarding, kiosk PIN terminal |
+| **Security** | Invite-based onboarding prevents open registration; role stored server-side in Firestore; kiosk isolated at separate URL; `.env` gitignored |
+| **Scalability** | Firestore scales horizontally; Träger → Einrichtung → Bereich hierarchy supports single homes through large chains (Caritas, BRK, AWO) |
+| **Extensibility** | Clean separation of services, screens, types, and context; i18n system makes adding further languages straightforward |
+| **Traceability** | Every feature maps to a numbered step in the build order; git history shows incremental feature delivery |
