@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Text, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -125,6 +125,19 @@ function MainTabs() {
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function AppNavigator() {
   const { userProfile, loading } = useAuth();
+  const [kioskMode, setKioskMode] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('kiosk') === '1') setKioskMode(true);
+    }
+  }, []);
+
+  // Kiosk mode: standalone page, no admin UI, no auth required
+  if (kioskMode) {
+    return <KioskScreen facilityId="fac1" facilityName="Caritas St. Konrad" />;
+  }
 
   if (loading) {
     return (

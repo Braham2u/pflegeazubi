@@ -61,7 +61,6 @@ export default function DashboardScreen() {
     { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋', screen: 'adminWishes' },
     { label: `Korrekturen${pendingCorr ? ` (${pendingCorr})` : ''}`,        icon: '⚠',  screen: 'adminAttendance' },
     { label: 'Neuen Azubi einladen',                                         icon: '➕', screen: 'trainees' },
-    { label: 'Stempeluhr öffnen',                                             icon: '🕐', screen: 'kiosk' },
   ];
 
   return (
