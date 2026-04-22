@@ -9,7 +9,7 @@ import {
   LOCATIONS, publishPlan, planToShifts,
   DayAssignment, AzubiPlan, CareLocation,
 } from '../../data/sharedPlanStore';
-import { publishShifts } from '../../services/shifts';
+import { publishShifts, getWeekShiftsForAzubis } from '../../services/shifts';
 import { getAllAzubis } from '../../services/users';
 import { User } from '../../types';
 
@@ -99,25 +99,47 @@ export default function ShiftPublisherScreen() {
       .then(list => {
         list.sort((a, b) => a.name.localeCompare(b.name));
         setAzubis(list);
-        setPlan(initPlan(list, getMonday(today)));
+        const base = initPlan(list, getMonday(today));
+        // Load existing shifts from Firestore for this week
+        getWeekShiftsForAzubis(list.map(a => a.id), toISO(getMonday(today)))
+          .then(shifts => {
+            shifts.forEach(s => {
+              if (base[s.azubiId]) {
+                base[s.azubiId][s.date] = {
+                  shiftType: s.shiftType,
+                  locationId: s.facilityId ?? '',
+                  startTime: s.startTime,
+                  endTime: s.endTime,
+                };
+              }
+            });
+            setPlan({ ...base });
+          })
+          .catch(() => setPlan(base));
       })
       .catch(() => {})
       .finally(() => setLoadingAzubis(false));
   }, []);
 
-  // Re-initialise plan slots when week changes (keep existing assignments, fill new days)
+  // Reload from Firestore when week changes
   useEffect(() => {
     if (azubis.length === 0) return;
-    setPlan(prev => {
-      const base = initPlan(azubis, weekStart);
-      // Merge: keep any existing assignment already set for this week
-      azubis.forEach(az => {
-        Object.keys(base[az.id]).forEach(iso => {
-          if (prev[az.id]?.[iso]) base[az.id][iso] = prev[az.id][iso];
+    const base = initPlan(azubis, weekStart);
+    getWeekShiftsForAzubis(azubis.map(a => a.id), toISO(weekStart))
+      .then(shifts => {
+        shifts.forEach(s => {
+          if (base[s.azubiId]) {
+            base[s.azubiId][s.date] = {
+              shiftType: s.shiftType,
+              locationId: s.facilityId ?? '',
+              startTime: s.startTime,
+              endTime: s.endTime,
+            };
+          }
         });
-      });
-      return base;
-    });
+        setPlan({ ...base });
+      })
+      .catch(() => setPlan(base));
   }, [weekStart, azubis]);
 
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));

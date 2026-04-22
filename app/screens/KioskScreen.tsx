@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  StatusBar, ActivityIndicator, Alert,
+  StatusBar, ActivityIndicator,
 } from 'react-native';
 import { BRAND } from '../constants/colors';
 import {
@@ -10,47 +10,68 @@ import {
 } from '../services/timeEntries';
 import { TimeEntry, ClockAction } from '../types';
 
-// ── Config ───────────────────────────────────────────────────────────────────
-// In production this would come from the admin-configured facility.
-// For now it reads from AuthContext via prop drilling or can be hardcoded on device.
 interface Props {
   facilityId: string;
   facilityName: string;
 }
 
-// ── Action definitions ───────────────────────────────────────────────────────
-const ACTION_META: Record<ClockAction, { label: string; sublabel: string; color: string; bg: string }> = {
-  start:      { label: 'START',         sublabel: 'Schicht beginnen', color: '#065F46', bg: '#D1FAE5' },
-  breakStart: { label: 'PAUSE',         sublabel: 'Pause beginnen',   color: '#92400E', bg: '#FEF3C7' },
-  breakEnd:   { label: 'PAUSE ENDE',    sublabel: 'Weiterarbeiten',   color: '#1E3A8A', bg: '#DBEAFE' },
-  end:        { label: 'ENDE',          sublabel: 'Schicht beenden',  color: '#7F1D1D', bg: '#FEE2E2' },
-};
+const AUTO_CLOSE_SECS = 15;
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function useTicker() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
 
 type Screen = 'pin' | 'action' | 'confirm';
 
 export default function KioskScreen({ facilityId, facilityName }: Props) {
-  const [pin, setPin]           = useState('');
-  const [screen, setScreen]     = useState<Screen>('pin');
-  const [loading, setLoading]   = useState(false);
-  const [azubi, setAzubi]       = useState<{ id: string; name: string } | null>(null);
-  const [entries, setEntries]   = useState<TimeEntry[]>([]);
+  const now = useTicker();
+  const [pin, setPin]       = useState('');
+  const [screen, setScreen] = useState<Screen>('pin');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState('');
+  const [azubi, setAzubi]   = useState<{ id: string; name: string } | null>(null);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [lastAction, setLastAction] = useState<ClockAction | null>(null);
+  const [countdown, setCountdown] = useState(AUTO_CLOSE_SECS);
+  const countRef = useRef(AUTO_CLOSE_SECS);
 
-  // Auto-reset to PIN screen after 5 s on confirm
+  const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Auto-reset countdown on confirm screen
   useEffect(() => {
     if (screen !== 'confirm') return;
-    const t = setTimeout(() => {
-      setScreen('pin');
-      setPin('');
-      setAzubi(null);
-      setEntries([]);
-      setLastAction(null);
-    }, 5000);
-    return () => clearTimeout(t);
+    countRef.current = AUTO_CLOSE_SECS;
+    setCountdown(AUTO_CLOSE_SECS);
+    const t = setInterval(() => {
+      countRef.current -= 1;
+      setCountdown(countRef.current);
+      if (countRef.current <= 0) reset();
+    }, 1000);
+    return () => clearInterval(t);
   }, [screen]);
+
+  function reset() {
+    setScreen('pin');
+    setPin('');
+    setAzubi(null);
+    setEntries([]);
+    setLastAction(null);
+    setError('');
+  }
 
   const handleDigit = (d: string) => {
     if (pin.length >= 6) return;
+    setError('');
     setPin(p => p + d);
   };
 
@@ -59,10 +80,11 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
   const handlePinSubmit = useCallback(async () => {
     if (pin.length < 4) return;
     setLoading(true);
+    setError('');
     try {
       const found = await getAzubiByPin(facilityId, pin);
       if (!found) {
-        Alert.alert('PIN ungültig', 'Kein Azubi mit diesem PIN gefunden.');
+        setError('PIN ungültig. Bitte erneut versuchen.');
         setPin('');
         return;
       }
@@ -70,14 +92,14 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
       setAzubi(found);
       setEntries(today);
       setScreen('action');
-    } catch (e) {
-      Alert.alert('Fehler', 'Bitte versuche es erneut.');
+    } catch {
+      setError('Verbindungsfehler. Bitte erneut versuchen.');
+      setPin('');
     } finally {
       setLoading(false);
     }
   }, [pin, facilityId]);
 
-  // Submit when PIN reaches 6 digits automatically
   useEffect(() => {
     if (pin.length === 6) handlePinSubmit();
   }, [pin, handlePinSubmit]);
@@ -87,62 +109,63 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     setLoading(true);
     try {
       await clockAction(azubi.id, azubi.name, facilityId, action);
+      const updated = await getEntriesForDay(azubi.id);
+      setEntries(updated);
       setLastAction(action);
       setScreen('confirm');
-    } catch (e) {
-      Alert.alert('Fehler', 'Konnte nicht gespeichert werden. Bitte erneut versuchen.');
+    } catch {
+      setError('Fehler beim Speichern. Bitte erneut versuchen.');
     } finally {
       setLoading(false);
     }
   };
 
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  const dateStr = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-
   // ── PIN Screen ──────────────────────────────────────────────────────────────
   if (screen === 'pin') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        <View style={styles.header}>
-          <Text style={styles.facilityName}>{facilityName}</Text>
-          <Text style={styles.clockTime}>{timeStr}</Text>
-          <Text style={styles.clockDate}>{dateStr}</Text>
+        <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
+        <View style={styles.pinHeader}>
+          <Text style={styles.pinFacility}>{facilityName}</Text>
+          <Text style={styles.pinClock}>{timeStr}</Text>
+          <Text style={styles.pinDate}>{dateStr}</Text>
         </View>
 
-        <View style={styles.pinSection}>
-          <Text style={styles.pinLabel}>PIN eingeben</Text>
+        <View style={styles.pinCard}>
+          <Text style={styles.pinTitle}>PIN eingeben</Text>
           <View style={styles.dots}>
             {Array.from({ length: 6 }).map((_, i) => (
-              <View
-                key={i}
-                style={[styles.dot, i < pin.length && styles.dotFilled]}
-              />
+              <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
             ))}
           </View>
-        </View>
+          {error ? <Text style={styles.pinError}>{error}</Text> : null}
 
-        <View style={styles.pad}>
-          {['1','2','3','4','5','6','7','8','9'].map(d => (
-            <TouchableOpacity key={d} style={styles.key} onPress={() => handleDigit(d)} activeOpacity={0.7}>
-              <Text style={styles.keyText}>{d}</Text>
+          <View style={styles.pad}>
+            {['1','2','3','4','5','6','7','8','9'].map(d => (
+              <TouchableOpacity key={d} style={styles.key} onPress={() => handleDigit(d)} activeOpacity={0.6}>
+                <Text style={styles.keyText}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.keyEmpty} />
+            <TouchableOpacity style={styles.key} onPress={() => handleDigit('0')} activeOpacity={0.6}>
+              <Text style={styles.keyText}>0</Text>
             </TouchableOpacity>
-          ))}
-          <View style={styles.keyEmpty} />
-          <TouchableOpacity style={styles.key} onPress={() => handleDigit('0')} activeOpacity={0.7}>
-            <Text style={styles.keyText}>0</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keyDelete} onPress={handleDelete} activeOpacity={0.7}>
-            <Text style={styles.keyDeleteText}>⌫</Text>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.keyDel} onPress={handleDelete} activeOpacity={0.6}>
+              <Text style={styles.keyDelText}>⌫</Text>
+            </TouchableOpacity>
+          </View>
+
+          {pin.length >= 4 && (
+            <TouchableOpacity style={styles.confirmPinBtn} onPress={handlePinSubmit} disabled={loading} activeOpacity={0.8}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmPinBtnText}>Bestätigen</Text>}
+            </TouchableOpacity>
+          )}
         </View>
 
-        {pin.length >= 4 && (
-          <TouchableOpacity style={styles.submitBtn} onPress={handlePinSubmit} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Bestätigen →</Text>}
-          </TouchableOpacity>
-        )}
+        <View style={styles.kioskBadge}>
+          <View style={styles.onlineDot} />
+          <Text style={styles.kioskBadgeText}>Stempeluhr · Online</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -151,81 +174,92 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
   if (screen === 'action' && azubi) {
     const next = nextAction(entries);
     const rec  = buildDailyRecord(entries);
+    const done = !next;
+
+    const BUTTONS: { action: ClockAction; label: string; icon: string; color: string; bg: string; darkBg: string }[] = [
+      { action: 'start',      label: 'Schicht beginnen', icon: '→',  color: '#fff', bg: '#2563EB', darkBg: '#1D4ED8' },
+      { action: 'end',        label: 'Schicht beenden',  icon: '⌂',  color: '#fff', bg: '#D97706', darkBg: '#B45309' },
+      { action: 'breakStart', label: 'Pause beginnen',   icon: '☕', color: '#fff', bg: '#374151', darkBg: '#1F2937' },
+      { action: 'breakEnd',   label: 'Pause beenden',    icon: '→',  color: '#fff', bg: '#374151', darkBg: '#1F2937' },
+    ];
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        <View style={styles.header}>
-          <Text style={styles.facilityName}>{facilityName}</Text>
-          <Text style={styles.clockTime}>{timeStr}</Text>
-        </View>
+        <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
 
-        <View style={styles.welcomeRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {azubi.name.split(/\s|,/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.welcomeText}>Hallo,</Text>
-            <Text style={styles.azubiName}>{azubi.name}</Text>
+        <View style={styles.actionHeader}>
+          <Text style={styles.actionClock}>{timeStr}</Text>
+          <View style={styles.actionUserRow}>
+            <View style={styles.actionAvatar}>
+              <Text style={styles.actionAvatarText}>
+                {azubi.name.split(/\s|,/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.actionUserName}>{azubi.name}</Text>
           </View>
         </View>
 
-        {/* Today summary */}
-        {rec && (
-          <View style={styles.summaryCard}>
-            {rec.startAt      && <SummaryRow icon="▶" label="Beginn"       val={fmtTime(rec.startAt)} />}
-            {rec.breakStartAt && <SummaryRow icon="☕" label="Pause"        val={fmtTime(rec.breakStartAt)} />}
-            {rec.breakEndAt   && <SummaryRow icon="▶" label="Weiter"       val={fmtTime(rec.breakEndAt)} />}
-            {rec.endAt        && <SummaryRow icon="■" label="Ende"         val={fmtTime(rec.endAt)} />}
+        {/* Today's time log */}
+        {rec && (rec.startAt || rec.breakStartAt || rec.endAt) && (
+          <View style={styles.logTable}>
+            <View style={styles.logRow}>
+              <Text style={styles.logHeader}>Start</Text>
+              <Text style={styles.logHeader}>Ende</Text>
+            </View>
+            {rec.startAt && (
+              <View style={styles.logRow}>
+                <Text style={styles.logCell}>{fmtTime(rec.startAt)}</Text>
+                <Text style={styles.logCell}>{rec.endAt ? fmtTime(rec.endAt) : '–'}</Text>
+              </View>
+            )}
+            {rec.breakStartAt && (
+              <View style={styles.logRow}>
+                <Text style={[styles.logCell, { color: '#D97706' }]}>{fmtTime(rec.breakStartAt)} (Pause)</Text>
+                <Text style={[styles.logCell, { color: '#D97706' }]}>{rec.breakEndAt ? fmtTime(rec.breakEndAt) : '–'}</Text>
+              </View>
+            )}
           </View>
         )}
 
-        {next ? (
-          <>
-            <Text style={styles.actionPrompt}>Was möchtest du stempeln?</Text>
-            {/* Show all sensible actions; highlight the expected next one */}
-            {(Object.keys(ACTION_META) as ClockAction[]).map(a => {
-              const meta    = ACTION_META[a];
-              const isNext  = a === next;
-              const isDone  = entries.some(e => e.action === a);
-              if (isDone) return null;
+        {done ? (
+          <View style={styles.doneBox}>
+            <Text style={styles.doneText}>Schicht vollständig erfasst</Text>
+          </View>
+        ) : (
+          <View style={styles.buttonGrid}>
+            {BUTTONS.map(({ action, label, icon, color, bg, darkBg }) => {
+              const isDone = entries.some(e => e.action === action);
+              const isNext = action === next;
               return (
                 <TouchableOpacity
-                  key={a}
+                  key={action}
                   style={[
-                    styles.actionBtn,
-                    { backgroundColor: isNext ? meta.bg : '#F9FAFB', borderColor: isNext ? meta.color : BRAND.border },
-                    isNext && styles.actionBtnPrimary,
+                    styles.gridBtn,
+                    { backgroundColor: isDone ? '#9CA3AF' : bg },
+                    isNext && styles.gridBtnNext,
                   ]}
-                  onPress={() => handleClock(a)}
-                  disabled={loading}
+                  onPress={() => !isDone && handleClock(action)}
+                  disabled={loading || isDone}
                   activeOpacity={0.75}
                 >
-                  <View>
-                    <Text style={[styles.actionLabel, { color: isNext ? meta.color : BRAND.textSecondary }]}>{meta.label}</Text>
-                    <Text style={[styles.actionSublabel, { color: isNext ? meta.color : BRAND.textSecondary }]}>{meta.sublabel}</Text>
-                  </View>
-                  {isNext && <Text style={[styles.actionArrow, { color: meta.color }]}>→</Text>}
+                  <Text style={[styles.gridBtnIcon, { color }]}>{icon}</Text>
+                  <Text style={[styles.gridBtnLabel, { color }]}>{label}</Text>
+                  {isDone && <Text style={styles.gridBtnDone}>✓</Text>}
                 </TouchableOpacity>
               );
             })}
-          </>
-        ) : (
-          <View style={styles.doneCard}>
-            <Text style={styles.doneIcon}>✓</Text>
-            <Text style={styles.doneText}>Schicht vollständig erfasst</Text>
           </View>
         )}
 
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => { setScreen('pin'); setPin(''); setAzubi(null); setEntries([]); }}>
-          <Text style={styles.cancelBtnText}>Abbrechen</Text>
+        {error ? <Text style={styles.actionError}>{error}</Text> : null}
+
+        <TouchableOpacity style={styles.actionCancelBtn} onPress={reset} activeOpacity={0.7}>
+          <Text style={styles.actionCancelText}>Abbrechen</Text>
         </TouchableOpacity>
 
         {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={BRAND.primary} />
+          <View style={styles.overlay}>
+            <ActivityIndicator size="large" color="#fff" />
           </View>
         )}
       </SafeAreaView>
@@ -234,16 +268,56 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
 
   // ── Confirm Screen ──────────────────────────────────────────────────────────
   if (screen === 'confirm' && lastAction) {
-    const meta = ACTION_META[lastAction];
+    const rec = buildDailyRecord(entries);
+    const ACTION_LABELS: Record<ClockAction, string> = {
+      start:      'Schicht begonnen',
+      end:        'Schicht beendet',
+      breakStart: 'Pause begonnen',
+      breakEnd:   'Pause beendet',
+    };
+
     return (
-      <SafeAreaView style={[styles.root, { backgroundColor: meta.bg }]}>
-        <StatusBar barStyle="dark-content" />
-        <View style={styles.confirmContent}>
-          <Text style={styles.confirmIcon}>✓</Text>
-          <Text style={[styles.confirmAction, { color: meta.color }]}>{meta.label}</Text>
-          <Text style={[styles.confirmTime, { color: meta.color }]}>{timeStr}</Text>
-          <Text style={[styles.confirmName, { color: meta.color }]}>{azubi?.name}</Text>
-          <Text style={[styles.confirmHint, { color: meta.color }]}>Wird automatisch zurückgesetzt…</Text>
+      <SafeAreaView style={[styles.root, { backgroundColor: '#1F2937' }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
+        <View style={styles.confirmHeader}>
+          <Text style={styles.confirmAction}>
+            {ACTION_LABELS[lastAction]}  {now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </Text>
+        </View>
+
+        <View style={styles.confirmCard}>
+          <View style={styles.confirmSuccess}>
+            <Text style={styles.confirmSuccessText}>Zeit erfasst für {azubi?.name}</Text>
+            <Text style={styles.confirmCountdown}>Schließt automatisch in {countdown} Sekunden</Text>
+          </View>
+
+          <View style={styles.logTable}>
+            <View style={styles.logRow}>
+              <Text style={styles.logHeader}>Start</Text>
+              <Text style={styles.logHeader}>Ende</Text>
+            </View>
+            {rec?.startAt && (
+              <View style={styles.logRow}>
+                <Text style={styles.logCell}>{fmtTime(rec.startAt)}</Text>
+                <Text style={styles.logCell}>{rec.endAt ? fmtTime(rec.endAt) : '–'}</Text>
+              </View>
+            )}
+            {rec?.breakStartAt && (
+              <View style={styles.logRow}>
+                <Text style={[styles.logCell, { color: '#D97706' }]}>{fmtTime(rec.breakStartAt)} (Pause)</Text>
+                <Text style={[styles.logCell, { color: '#D97706' }]}>{rec.breakEndAt ? fmtTime(rec.breakEndAt) : '–'}</Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity style={styles.closeBtn} onPress={reset} activeOpacity={0.8}>
+            <Text style={styles.closeBtnText}>Schließen</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.kioskBadge}>
+          <View style={styles.onlineDot} />
+          <Text style={styles.kioskBadgeText}>Stempeluhr · Online</Text>
         </View>
       </SafeAreaView>
     );
@@ -252,82 +326,72 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
   return null;
 }
 
-// ── Small helper components ─────────────────────────────────────────────────
-
-function SummaryRow({ icon, label, val }: { icon: string; label: string; val: string }) {
-  return (
-    <View style={srStyles.row}>
-      <Text style={srStyles.icon}>{icon}</Text>
-      <Text style={srStyles.label}>{label}</Text>
-      <Text style={srStyles.val}>{val}</Text>
-    </View>
-  );
-}
-
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-}
-
-// ── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  root:         { flex: 1, backgroundColor: '#fff' },
-  header:       { alignItems: 'center', paddingTop: 32, paddingBottom: 16 },
-  facilityName: { fontSize: 13, fontWeight: '600', color: BRAND.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
-  clockTime:    { fontSize: 52, fontWeight: '700', color: BRAND.textPrimary, lineHeight: 60, marginTop: 4 },
-  clockDate:    { fontSize: 15, color: BRAND.textSecondary, marginTop: 2 },
+  root: { flex: 1, backgroundColor: '#1F2937' },
 
-  pinSection:   { alignItems: 'center', marginTop: 16, marginBottom: 28 },
-  pinLabel:     { fontSize: 16, fontWeight: '600', color: BRAND.textPrimary, marginBottom: 16 },
-  dots:         { flexDirection: 'row', columnGap: 14 },
-  dot:          { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: BRAND.border, backgroundColor: 'transparent' },
-  dotFilled:    { backgroundColor: BRAND.primary, borderColor: BRAND.primary },
+  // PIN screen
+  pinHeader: { alignItems: 'center', paddingTop: 40, paddingBottom: 24 },
+  pinFacility: { fontSize: 12, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' },
+  pinClock: { fontSize: 56, fontWeight: '700', color: '#fff', lineHeight: 64, marginTop: 8 },
+  pinDate: { fontSize: 15, color: '#9CA3AF', marginTop: 4 },
+  pinCard: { backgroundColor: '#fff', marginHorizontal: 20, borderRadius: 20, padding: 24, alignItems: 'center' },
+  pinTitle: { fontSize: 16, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 20 },
+  dots: { flexDirection: 'row', columnGap: 14, marginBottom: 8 },
+  dot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: BRAND.border },
+  dotFilled: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  pinError: { fontSize: 13, color: '#DC2626', fontWeight: '600', marginTop: 8, marginBottom: 4 },
+  pad: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 20, rowGap: 12, columnGap: 12, justifyContent: 'center', width: '100%' },
+  key: { width: 78, height: 78, borderRadius: 39, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
+  keyText: { fontSize: 26, fontWeight: '600', color: BRAND.textPrimary },
+  keyEmpty: { width: 78, height: 78 },
+  keyDel: { width: 78, height: 78, borderRadius: 39, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
+  keyDelText: { fontSize: 22, color: BRAND.textSecondary },
+  confirmPinBtn: { marginTop: 20, width: '100%', backgroundColor: '#2563EB', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  confirmPinBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  pad:          { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 48, rowGap: 12, columnGap: 12, justifyContent: 'center' },
-  key:          { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
-  keyText:      { fontSize: 26, fontWeight: '600', color: BRAND.textPrimary },
-  keyEmpty:     { width: 80, height: 80 },
-  keyDelete:    { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
-  keyDeleteText:{ fontSize: 22, color: BRAND.textSecondary },
+  // Action screen
+  actionHeader: { backgroundColor: '#111827', paddingTop: 24, paddingBottom: 20, paddingHorizontal: 20, alignItems: 'center' },
+  actionClock: { fontSize: 42, fontWeight: '700', color: '#fff' },
+  actionUserRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, columnGap: 12 },
+  actionAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center' },
+  actionAvatarText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  actionUserName: { fontSize: 18, fontWeight: '700', color: '#fff' },
 
-  submitBtn:    { marginHorizontal: 48, marginTop: 24, backgroundColor: BRAND.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  submitBtnText:{ fontSize: 16, fontWeight: '700', color: '#fff' },
+  // 2x2 button grid
+  buttonGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, rowGap: 12, columnGap: 12 },
+  gridBtn: { width: '47%', borderRadius: 16, paddingVertical: 28, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minHeight: 110 },
+  gridBtnNext: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
+  gridBtnIcon: { fontSize: 24, marginBottom: 8 },
+  gridBtnLabel: { fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  gridBtnDone: { fontSize: 18, color: '#fff', marginTop: 6 },
 
-  welcomeRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16, columnGap: 14 },
-  avatar:       { width: 52, height: 52, borderRadius: 26, backgroundColor: BRAND.primaryLight, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: BRAND.primary },
-  avatarText:   { fontSize: 18, fontWeight: '700', color: BRAND.primary },
-  welcomeText:  { fontSize: 14, color: BRAND.textSecondary },
-  azubiName:    { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary },
+  doneBox: { margin: 20, backgroundColor: '#065F46', borderRadius: 14, padding: 24, alignItems: 'center' },
+  doneText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  summaryCard:  { marginHorizontal: 24, marginBottom: 16, backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: BRAND.border },
+  // Time log table
+  logTable: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
+  logRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  logHeader: { flex: 1, fontSize: 12, fontWeight: '700', color: '#6B7280', padding: 10, backgroundColor: '#F9FAFB' },
+  logCell: { flex: 1, fontSize: 14, fontWeight: '600', color: BRAND.textPrimary, padding: 10 },
 
-  actionPrompt: { fontSize: 14, fontWeight: '600', color: BRAND.textSecondary, paddingHorizontal: 24, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  actionBtn:    { marginHorizontal: 24, marginBottom: 10, borderRadius: 14, borderWidth: 2, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  actionBtnPrimary: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
-  actionLabel:  { fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
-  actionSublabel:{ fontSize: 12, fontWeight: '500', marginTop: 2 },
-  actionArrow:  { fontSize: 22, fontWeight: '700' },
+  actionError: { color: '#FCA5A5', fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 8, marginHorizontal: 20 },
+  actionCancelBtn: { marginTop: 'auto' as any, paddingVertical: 20, alignItems: 'center' },
+  actionCancelText: { fontSize: 15, color: '#9CA3AF', fontWeight: '600' },
 
-  doneCard:     { marginHorizontal: 24, marginTop: 16, backgroundColor: '#D1FAE5', borderRadius: 14, padding: 24, alignItems: 'center' },
-  doneIcon:     { fontSize: 32, color: '#065F46' },
-  doneText:     { fontSize: 15, fontWeight: '700', color: '#065F46', marginTop: 8 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
 
-  cancelBtn:    { marginHorizontal: 24, marginTop: 12, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText:{ fontSize: 15, color: BRAND.textSecondary, fontWeight: '600' },
+  // Confirm screen
+  confirmHeader: { backgroundColor: '#374151', paddingVertical: 20, paddingHorizontal: 20 },
+  confirmAction: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  confirmCard: { backgroundColor: '#fff', margin: 20, borderRadius: 16, overflow: 'hidden' },
+  confirmSuccess: { backgroundColor: '#D1FAE5', padding: 16, alignItems: 'center' },
+  confirmSuccessText: { fontSize: 14, fontWeight: '700', color: '#065F46' },
+  confirmCountdown: { fontSize: 12, color: '#065F46', marginTop: 4 },
+  closeBtn: { margin: 16, backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  closeBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center' },
-
-  confirmContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  confirmIcon:    { fontSize: 64, marginBottom: 12 },
-  confirmAction:  { fontSize: 36, fontWeight: '900', letterSpacing: 1 },
-  confirmTime:    { fontSize: 52, fontWeight: '700', marginTop: 4 },
-  confirmName:    { fontSize: 18, fontWeight: '600', marginTop: 8 },
-  confirmHint:    { fontSize: 13, marginTop: 24, opacity: 0.7 },
-});
-
-const srStyles = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, columnGap: 8 },
-  icon:  { fontSize: 13, width: 20, textAlign: 'center' },
-  label: { fontSize: 13, color: BRAND.textSecondary, flex: 1 },
-  val:   { fontSize: 13, fontWeight: '700', color: BRAND.textPrimary },
+  // Badge
+  kioskBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, columnGap: 6 },
+  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
+  kioskBadgeText: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
 });

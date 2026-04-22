@@ -58,6 +58,12 @@ export async function publishShifts(shifts: Shift[]): Promise<void> {
   await batch.commit();
 }
 
+export async function getWeekShiftsForAzubis(azubiIds: string[], weekStart: string): Promise<Shift[]> {
+  if (!db || azubiIds.length === 0) return [];
+  const results = await Promise.all(azubiIds.map(id => getShiftsForWeek(id, weekStart)));
+  return results.flat();
+}
+
 export async function createShift(shift: Omit<Shift, 'id'>): Promise<string> {
   if (!db) throw new Error('Firebase not configured');
   const ref = await addDoc(collection(db, 'shifts'), shift);
