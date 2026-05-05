@@ -15,6 +15,7 @@ import DashboardScreen from '../screens/admin/DashboardScreen';
 import ShiftPublisherScreen from '../screens/admin/ShiftPublisherScreen';
 import WishesScreen from '../screens/admin/WishesScreen';
 import TraineeListScreen from '../screens/admin/TraineeListScreen';
+import SubAdminListScreen from '../screens/admin/SubAdminListScreen';
 import AttendanceScreen from '../screens/admin/AttendanceScreen';
 import KioskScreen from '../screens/KioskScreen';
 import { BRAND, ADMIN_PURPLE } from '../constants/colors';
@@ -87,7 +88,8 @@ function AdminNavigator() {
   return (
     <AdminStack.Navigator screenOptions={{ headerShown: false }}>
       <AdminStack.Screen name="adminTabs"  component={AdminTabs} />
-      <AdminStack.Screen name="trainees"   component={TraineeListScreen} />
+      <AdminStack.Screen name="trainees"    component={TraineeListScreen} />
+      <AdminStack.Screen name="subAdmins"  component={SubAdminListScreen} />
       <AdminStack.Screen
         name="kiosk"
         options={{ presentation: 'fullScreenModal' }}
@@ -156,7 +158,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer key={navKey}>
       {userProfile
-        ? userProfile.role === 'admin' ? <AdminNavigator /> : <MainTabs />
+        ? (userProfile.role === 'admin' || userProfile.role === 'subAdmin') ? <AdminNavigator /> : <MainTabs />
         : <LoginScreen />}
     </NavigationContainer>
   );

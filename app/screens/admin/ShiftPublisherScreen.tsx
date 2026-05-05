@@ -11,6 +11,7 @@ import {
 } from '../../data/sharedPlanStore';
 import { publishShifts, getWeekShiftsForAzubis } from '../../services/shifts';
 import { getAllAzubis } from '../../services/users';
+import { useAuth } from '../../context/AuthContext';
 import { User } from '../../types';
 
 // Default location when a shift type is first selected
@@ -85,6 +86,10 @@ type EditState = {
 };
 
 export default function ShiftPublisherScreen() {
+  const { userProfile } = useAuth();
+  const isSubAdmin = userProfile?.role === 'subAdmin';
+  const lockedFacilityId = isSubAdmin ? (userProfile?.primaryFacilityId ?? null) : null;
+
   const today = new Date();
   const [weekStart, setWeekStart] = useState(getMonday(today));
   const [azubis, setAzubis] = useState<User[]>([]);
@@ -92,7 +97,7 @@ export default function ShiftPublisherScreen() {
   const [plan, setPlan] = useState<Record<string, AzubiPlan>>({});
   const [editing, setEditing] = useState<EditState | null>(null);
   const [toast, setToast] = useState(false);
-  const [selectedLocId, setSelectedLocId] = useState<string | null>(null);
+  const [selectedLocId, setSelectedLocId] = useState<string | null>(lockedFacilityId);
 
   useEffect(() => {
     getAllAzubis()
@@ -177,7 +182,17 @@ export default function ShiftPublisherScreen() {
   }
 
   function confirmTime() {
-    setEditing(e => e ? { ...e, step: 3 } : null);
+    if (lockedFacilityId && editing?.pendingShift) {
+      setPlan(p => ({ ...p, [editing.azubiId]: { ...p[editing.azubiId], [editing.iso]: {
+        shiftType: editing.pendingShift!,
+        locationId: lockedFacilityId,
+        startTime: editing.pendingStart,
+        endTime: editing.pendingEnd,
+      }}}));
+      setEditing(null);
+    } else {
+      setEditing(e => e ? { ...e, step: 3 } : null);
+    }
   }
 
   function selectLocation(locationId: string) {
@@ -224,22 +239,24 @@ export default function ShiftPublisherScreen() {
           style={styles.locSwitcherScroll}
           contentContainerStyle={styles.locSwitcherContent}
         >
-          {/* "Alle" chip */}
-          <TouchableOpacity
-            style={[styles.locChip, selectedLocId === null && styles.locChipActive]}
-            onPress={() => setSelectedLocId(null)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.locChipIcon}>🗂️</Text>
-            <Text style={[styles.locChipText, selectedLocId === null && styles.locChipTextActive]}>Alle</Text>
-          </TouchableOpacity>
+          {/* "Alle" chip — hidden for sub-admins (their location is locked) */}
+          {!isSubAdmin && (
+            <TouchableOpacity
+              style={[styles.locChip, selectedLocId === null && styles.locChipActive]}
+              onPress={() => setSelectedLocId(null)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.locChipIcon}>🗂️</Text>
+              <Text style={[styles.locChipText, selectedLocId === null && styles.locChipTextActive]}>Alle</Text>
+            </TouchableOpacity>
+          )}
 
           {LOCATIONS.map(loc => (
             <TouchableOpacity
               key={loc.id}
               style={[styles.locChip, selectedLocId === loc.id && styles.locChipActive]}
-              onPress={() => setSelectedLocId(loc.id)}
-              activeOpacity={0.75}
+              onPress={() => !isSubAdmin && setSelectedLocId(loc.id)}
+              activeOpacity={isSubAdmin ? 1 : 0.75}
             >
               <Text style={styles.locChipIcon}>{loc.icon}</Text>
               <Text style={[styles.locChipText, selectedLocId === loc.id && styles.locChipTextActive]}>
@@ -483,7 +500,9 @@ export default function ShiftPublisherScreen() {
                 <Text style={styles.timeHint}>‹ › wechselt in 30-Minuten-Schritten</Text>
 
                 <TouchableOpacity style={styles.confirmTimeBtn} onPress={confirmTime} activeOpacity={0.8}>
-                  <Text style={styles.confirmTimeBtnText}>Weiter → Standort wählen</Text>
+                  <Text style={styles.confirmTimeBtnText}>
+                    {lockedFacilityId ? 'Speichern' : 'Weiter → Standort wählen'}
+                  </Text>
                 </TouchableOpacity>
               </>
             )}

@@ -6,8 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
-import { getAllAzubis, regenerateClockPin } from '../../services/users';
+import { getAllAzubis, regenerateClockPin, deleteUserProfile } from '../../services/users';
 import { inviteAzubi, NewAzubiData } from '../../services/invite';
+import { useAuth } from '../../context/AuthContext';
 import { User } from '../../types';
 
 const YEAR_COLORS = ['#FAEEDA', '#EEEDFE', '#E1F5EE'];
@@ -44,6 +45,7 @@ const EMPTY_FORM: NewAzubiData = {
 
 export default function TraineeListScreen() {
   const navigation = useNavigation();
+  const { isMainAdmin } = useAuth();
   const [azubis, setAzubis] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<User | null>(null);
@@ -106,9 +108,11 @@ export default function TraineeListScreen() {
             <Text style={styles.backBtnText}>‹ Zurück</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Azubis</Text>
-          <TouchableOpacity style={styles.inviteBtn} onPress={openInvite} activeOpacity={0.8}>
-            <Text style={styles.inviteBtnText}>+ Einladen</Text>
-          </TouchableOpacity>
+          {isMainAdmin && (
+            <TouchableOpacity style={styles.inviteBtn} onPress={openInvite} activeOpacity={0.8}>
+              <Text style={styles.inviteBtnText}>+ Einladen</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {loading ? (
@@ -200,6 +204,25 @@ export default function TraineeListScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* Delete — main admin only */}
+                {isMainAdmin && (
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={async () => {
+                      if (!selected) return;
+                      try {
+                        await deleteUserProfile(selected.id);
+                        setSelected(null);
+                        setNewPin(null);
+                        load();
+                      } catch { /* ignore */ }
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.deleteBtnText}>Azubi entfernen</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -394,6 +417,8 @@ const styles = StyleSheet.create({
   pinBoxHint: { fontSize: 11, color: ADMIN_PURPLE, marginTop: 4 },
   regenPinBtn: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   regenPinBtnText: { fontSize: 13, fontWeight: '700', color: '#92400E' },
+  deleteBtn: { marginTop: 20, backgroundColor: '#FEE2E2', borderRadius: 12, paddingVertical: 14, alignItems: 'center', width: '100%' },
+  deleteBtnText: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
   inviteSheetTop: { alignItems: 'center', marginBottom: 16 },
   closeBtn: { position: 'absolute', right: 0, top: -8, padding: 8 },
   closeBtnText: { fontSize: 18, color: BRAND.textSecondary, fontWeight: '600' },

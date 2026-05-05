@@ -1,5 +1,5 @@
 import {
-  doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc,
+  doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { User } from '../types';
@@ -44,4 +44,16 @@ export async function listAdmins(): Promise<User[]> {
   const q = query(collection(db, 'users'), where('role', '==', 'admin'));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+}
+
+export async function listSubAdmins(): Promise<User[]> {
+  if (!db) return [];
+  const q = query(collection(db, 'users'), where('role', '==', 'subAdmin'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+}
+
+export async function deleteUserProfile(uid: string): Promise<void> {
+  if (!db) throw new Error('Firebase not configured');
+  await deleteDoc(doc(db, 'users', uid));
 }

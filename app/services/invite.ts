@@ -98,3 +98,57 @@ export async function inviteAzubi(data: NewAzubiData): Promise<InviteResult> {
 
   return { uid, tempPassword: tempPw, clockPin };
 }
+
+export interface NewSubAdminData {
+  name: string;
+  email: string;
+  primaryFacilityId: string;
+}
+
+export async function inviteSubAdmin(data: NewSubAdminData): Promise<{ uid: string; tempPassword: string }> {
+  if (!db) throw new Error('Firebase not configured');
+
+  const existing = await getDocs(
+    query(collection(db, 'users'), where('email', '==', data.email)),
+  );
+  if (!existing.empty) {
+    throw new Error('Diese E-Mail ist bereits im System registriert.');
+  }
+
+  const tempPw = Math.random().toString(36).slice(-8) + 'Aa1!';
+  const signUpRes = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: data.email, password: tempPw, returnSecureToken: false }),
+    },
+  );
+  const signUp = await signUpRes.json();
+  if (signUp.error) {
+    const msg: string = signUp.error.message;
+    if (msg === 'EMAIL_EXISTS') throw new Error('Ein Konto mit dieser E-Mail existiert bereits.');
+    throw new Error(msg);
+  }
+  const uid: string = signUp.localId;
+
+  await setDoc(doc(db, 'users', uid), {
+    name: data.name,
+    email: data.email,
+    role: 'subAdmin',
+    primaryFacilityId: data.primaryFacilityId,
+    contractedHoursPerWeek: 0,
+    language: 'de',
+  });
+
+  await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: data.email }),
+    },
+  ).catch(() => {});
+
+  return { uid, tempPassword: tempPw };
+}

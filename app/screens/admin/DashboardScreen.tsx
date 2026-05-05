@@ -18,7 +18,7 @@ function currentlyActive(records: DailyTimeRecord[]): number {
 }
 
 export default function DashboardScreen() {
-  const { userProfile } = useAuth();
+  const { userProfile, isMainAdmin } = useAuth();
   const navigation = useNavigation<any>();
   const firstName  = userProfile?.name.split(/\s|,/)[0] ?? 'Admin';
   const facilityId = userProfile?.primaryFacilityId ?? '';
@@ -60,14 +60,19 @@ export default function DashboardScreen() {
     { label: 'Dienstplan veröffentlichen',                                   icon: '📋', screen: 'shiftPublisher' },
     { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋', screen: 'adminWishes' },
     { label: `Korrekturen${pendingCorr ? ` (${pendingCorr})` : ''}`,        icon: '⚠',  screen: 'adminAttendance' },
-    { label: 'Neuen Azubi einladen',                                         icon: '➕', screen: 'trainees' },
+    ...(isMainAdmin ? [
+      { label: 'Neuen Azubi einladen',    icon: '➕', screen: 'trainees' },
+      { label: 'Sub-Admins verwalten',    icon: '🔑', screen: 'subAdmins' },
+    ] : []),
   ];
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.greeting}>Hallo, {firstName} 👋</Text>
-        <Text style={styles.subtitle}>Ausbildungsleitung · Übersicht</Text>
+        <Text style={styles.subtitle}>
+          {isMainAdmin ? 'Hauptadmin · Übersicht' : 'Schichtleitung · Übersicht'}
+        </Text>
 
         <View style={styles.grid}>
           {metrics.map((m) => (

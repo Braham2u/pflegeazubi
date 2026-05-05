@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'azubi' | 'admin';
+  role: 'azubi' | 'admin' | 'subAdmin';
   primaryFacilityId: string;
   ausbildungYear?: 1 | 2 | 3;
   contractedHoursPerWeek: number;
