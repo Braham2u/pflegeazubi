@@ -32,6 +32,13 @@ export async function getAllAzubis(): Promise<User[]> {
   return listAzubis();
 }
 
+export async function regenerateClockPin(uid: string): Promise<string> {
+  if (!db) throw new Error('Firebase not configured');
+  const newPin = String(Math.floor(100000 + Math.random() * 900000));
+  await updateDoc(doc(db, 'users', uid), { clockPin: newPin });
+  return newPin;
+}
+
 export async function listAdmins(): Promise<User[]> {
   if (!db) return [];
   const q = query(collection(db, 'users'), where('role', '==', 'admin'));

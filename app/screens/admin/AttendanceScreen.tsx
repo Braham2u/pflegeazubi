@@ -6,10 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
-import { getTodayAttendance, checkBreakCompliance } from '../../services/timeEntries';
+import { getTodayAttendance, checkBreakCompliance, clockAction, getMonthlyRecords } from '../../services/timeEntries';
 import { getPendingCorrections, respondToCorrection } from '../../services/corrections';
+import { getAllAzubis } from '../../services/users';
 import { useAuth } from '../../context/AuthContext';
-import { DailyTimeRecord, CorrectionRequest } from '../../types';
+import { DailyTimeRecord, CorrectionRequest, User } from '../../types';
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -42,20 +43,32 @@ export default function AttendanceScreen() {
   const [corrections, setCorrections] = useState<CorrectionRequest[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
-  const [tab, setTab] = useState<'live' | 'corrections'>('live');
+  const [tab, setTab] = useState<'live' | 'corrections' | 'hours'>('live');
+  const [azubis, setAzubis] = useState<User[]>([]);
+  const [monthlyHours, setMonthlyHours] = useState<Record<string, number>>({});
 
   const facilityId = userProfile?.primaryFacilityId ?? '';
 
   const load = useCallback(async (refresh = false) => {
     if (!facilityId) return;
     refresh ? setRefreshing(true) : setLoading(true);
+    const now = new Date();
     try {
-      const [r, c] = await Promise.all([
+      const [r, c, azubiList] = await Promise.all([
         getTodayAttendance(facilityId),
         getPendingCorrections(facilityId),
+        getAllAzubis(),
       ]);
       setRecords(r);
       setCorrections(c);
+      setAzubis(azubiList);
+      // Load monthly hours for each azubi
+      const hoursMap: Record<string, number> = {};
+      await Promise.all(azubiList.map(async az => {
+        const recs = await getMonthlyRecords(az.id, now.getFullYear(), now.getMonth());
+        hoursMap[az.id] = recs.reduce((s, rec) => s + (rec.netMinutes ?? 0), 0);
+      }));
+      setMonthlyHours(hoursMap);
     } catch {
       setRecords([]); setCorrections([]);
     } finally {
@@ -69,6 +82,13 @@ export default function AttendanceScreen() {
     if (!userProfile) return;
     try {
       await respondToCorrection(id, status, userProfile.name);
+      load();
+    } catch { /* ignore */ }
+  };
+
+  const handleManualClockOut = async (rec: DailyTimeRecord) => {
+    try {
+      await clockAction(rec.azubiId, rec.azubiName, facilityId, 'end');
       load();
     } catch { /* ignore */ }
   };
@@ -97,7 +117,10 @@ export default function AttendanceScreen() {
 
       <View style={styles.tabs}>
         <TouchableOpacity style={[styles.tab, tab === 'live' && styles.tabActive]} onPress={() => setTab('live')}>
-          <Text style={[styles.tabText, tab === 'live' && styles.tabTextActive]}>Live-Übersicht</Text>
+          <Text style={[styles.tabText, tab === 'live' && styles.tabTextActive]}>Live</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, tab === 'hours' && styles.tabActive]} onPress={() => setTab('hours')}>
+          <Text style={[styles.tabText, tab === 'hours' && styles.tabTextActive]}>Stunden</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tab, tab === 'corrections' && styles.tabActive]} onPress={() => setTab('corrections')}>
           <Text style={[styles.tabText, tab === 'corrections' && styles.tabTextActive]}>
@@ -156,6 +179,48 @@ export default function AttendanceScreen() {
                           <Text style={styles.warnText}>⚠ {warn}</Text>
                         </View>
                       )}
+                      {status.label === 'Im Dienst' && (
+                        <TouchableOpacity style={styles.clockOutBtn} onPress={() => handleManualClockOut(rec)}>
+                          <Text style={styles.clockOutBtnText}>Manuell ausstempeln</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })
+          )}
+
+          {/* ── Hours tab ── */}
+          {tab === 'hours' && (
+            azubis.length === 0
+              ? <Text style={styles.empty}>Keine Azubis gefunden.</Text>
+              : azubis.map(az => {
+                  const mins = monthlyHours[az.id] ?? 0;
+                  const hrs  = Math.floor(mins / 60);
+                  const rem  = mins % 60;
+                  const contracted = Math.round((az.contractedHoursPerWeek ?? 40) * 4.33);
+                  const pct  = Math.min(100, Math.round((hrs / contracted) * 100));
+                  return (
+                    <View key={az.id} style={styles.card}>
+                      <View style={styles.cardHeader}>
+                        <View style={styles.avatarCircle}>
+                          <Text style={styles.avatarText}>
+                            {az.name.split(/\s|,/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.azubiName}>{az.name}</Text>
+                          <Text style={{ fontSize: 12, color: BRAND.textSecondary }}>
+                            Soll: {contracted}h / Monat
+                          </Text>
+                        </View>
+                        <Text style={styles.hoursLabel}>
+                          {hrs}h{rem > 0 ? ` ${rem}m` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.progressBg}>
+                        <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: pct >= 100 ? '#065F46' : ADMIN_PURPLE }]} />
+                      </View>
+                      <Text style={styles.progressLabel}>{pct}% von Sollstunden</Text>
                     </View>
                   );
                 })
@@ -237,6 +302,11 @@ const styles = StyleSheet.create({
   corrDate:     { fontSize: 13, color: BRAND.textSecondary, marginTop: 2 },
   corrProposed: { fontSize: 13, color: BRAND.textPrimary, marginTop: 6 },
   corrNote:     { fontSize: 12, color: BRAND.textSecondary, marginTop: 4 },
+  clockOutBtn:  { marginTop: 10, backgroundColor: '#FEE2E2', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  clockOutBtnText: { fontSize: 13, fontWeight: '700', color: '#7F1D1D' },
+  progressBg:   { height: 8, backgroundColor: '#F3F4F6', borderRadius: 4, marginTop: 10, overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4 },
+  progressLabel:{ fontSize: 11, color: BRAND.textSecondary, marginTop: 4 },
   corrBtns:     { flexDirection: 'row', columnGap: 10, marginTop: 12 },
   approveBtn:   { flex: 1, backgroundColor: '#D1FAE5', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   approveBtnText: { fontSize: 13, fontWeight: '700', color: '#065F46' },

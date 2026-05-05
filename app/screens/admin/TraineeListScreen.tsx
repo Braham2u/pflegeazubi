@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../../constants/colors';
-import { getAllAzubis } from '../../services/users';
+import { getAllAzubis, regenerateClockPin } from '../../services/users';
 import { inviteAzubi, NewAzubiData } from '../../services/invite';
 import { User } from '../../types';
 
@@ -52,6 +52,7 @@ export default function TraineeListScreen() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteResult, setInviteResult] = useState<{ email: string; tempPassword: string; clockPin: string } | null>(null);
+  const [newPin, setNewPin] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,8 +146,8 @@ export default function TraineeListScreen() {
       </ScrollView>
 
       {/* ── Detail sheet ── */}
-      <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSelected(null)}>
+      <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => { setSelected(null); setNewPin(null); }}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { setSelected(null); setNewPin(null); }}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
             {selected && (
@@ -174,6 +175,31 @@ export default function TraineeListScreen() {
                     <Text style={styles.detailValue}>{row.value}</Text>
                   </View>
                 ))}
+
+                {/* PIN section */}
+                <View style={[styles.detailRow, { flexDirection: 'column', alignItems: 'flex-start', rowGap: 8 }]}>
+                  <Text style={styles.detailLabel}>Stempel-PIN</Text>
+                  {newPin ? (
+                    <View style={styles.pinBox}>
+                      <Text style={styles.pinBoxText}>{newPin}</Text>
+                      <Text style={styles.pinBoxHint}>Neuer PIN — bitte notieren</Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.regenPinBtn}
+                      onPress={async () => {
+                        if (!selected) return;
+                        try {
+                          const pin = await regenerateClockPin(selected.id);
+                          setNewPin(pin);
+                          load();
+                        } catch { /* ignore */ }
+                      }}
+                    >
+                      <Text style={styles.regenPinBtnText}>PIN neu generieren</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </>
             )}
           </View>
@@ -363,6 +389,11 @@ const styles = StyleSheet.create({
   credLabel: { fontSize: 12, color: BRAND.textSecondary, fontWeight: '600' },
   credValue: { fontSize: 14, color: BRAND.textPrimary, fontWeight: '700', flex: 1, textAlign: 'right' },
   credHint: { fontSize: 12, color: BRAND.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
+  pinBox: { backgroundColor: ADMIN_PURPLE_LIGHT, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', width: '100%' },
+  pinBoxText: { fontSize: 28, fontWeight: '800', color: ADMIN_PURPLE, letterSpacing: 8 },
+  pinBoxHint: { fontSize: 11, color: ADMIN_PURPLE, marginTop: 4 },
+  regenPinBtn: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  regenPinBtnText: { fontSize: 13, fontWeight: '700', color: '#92400E' },
   inviteSheetTop: { alignItems: 'center', marginBottom: 16 },
   closeBtn: { position: 'absolute', right: 0, top: -8, padding: 8 },
   closeBtnText: { fontSize: 18, color: BRAND.textSecondary, fontWeight: '600' },

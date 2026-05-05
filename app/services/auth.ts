@@ -1,5 +1,6 @@
 import {
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -21,6 +22,12 @@ export async function logout() {
 export async function resetPassword(email: string) {
   if (!auth) throw new Error('Firebase not configured.');
   return sendPasswordResetEmail(auth, email);
+}
+
+export async function signInAsKiosk() {
+  if (!auth) return;
+  if (auth.currentUser) return;
+  await signInAnonymously(auth);
 }
 
 export function onAuthChange(callback: (user: FirebaseUser | null) => void) {

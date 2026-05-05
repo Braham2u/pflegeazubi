@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
+import { signInAsKiosk } from '../services/auth';
 import LoginScreen from '../screens/LoginScreen';
 import ShiftPlanScreen from '../screens/ShiftPlanScreen';
 import WorkingTimeScreen from '../screens/WorkingTimeScreen';
@@ -130,7 +131,10 @@ export default function AppNavigator() {
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('kiosk') === '1') setKioskMode(true);
+      if (params.get('kiosk') === '1') {
+        setKioskMode(true);
+        signInAsKiosk().catch(() => {});
+      }
     }
   }, []);
 
