@@ -129,23 +129,23 @@ export async function getMonthlyRecords(
 ): Promise<DailyTimeRecord[]> {
   if (!db) return [];
 
-  const pad   = (n: number) => String(n).padStart(2, '0');
-  const from  = `${year}-${pad(month + 1)}-01`;
-  const toY   = month === 11 ? year + 1 : year;
-  const toM   = month === 11 ? 0 : month + 1;
-  const to    = `${toY}-${pad(toM + 1)}-01`;
+  const pad  = (n: number) => String(n).padStart(2, '0');
+  const from = `${year}-${pad(month + 1)}-01`;
+  const toY  = month === 11 ? year + 1 : year;
+  const toM  = month === 11 ? 0 : month + 1;
+  const to   = `${toY}-${pad(toM + 1)}-01`;
 
+  // Single-field equality query — no composite index required.
+  // We filter the date range in JS after fetching.
   const q = query(
     collection(db, COL),
     where('azubiId', '==', azubiId),
-    where('date', '>=', from),
-    where('date', '<',  to),
-    orderBy('date'),
-    orderBy('timestamp'),
   );
 
   const snap = await getDocs(q);
-  const entries = snap.docs.map(d => d.data() as TimeEntry);
+  const entries = snap.docs
+    .map(d => d.data() as TimeEntry)
+    .filter(e => e.date >= from && e.date < to);
 
   // Group by date
   const byDate = new Map<string, TimeEntry[]>();

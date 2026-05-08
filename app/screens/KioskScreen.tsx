@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView,
   StatusBar, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BRAND } from '../constants/colors';
 import {
-  getAzubiByPin, getEntriesForDay, clockAction,
-  nextAction, buildDailyRecord,
+  getAzubiByPin, getEntriesForDay, clockAction, buildDailyRecord,
 } from '../services/timeEntries';
 import { TimeEntry, ClockAction } from '../types';
 
@@ -30,26 +30,43 @@ function useTicker() {
   return now;
 }
 
-type Screen = 'pin' | 'action' | 'confirm';
+type Screen = 'pin' | 'action' | 'preview' | 'success';
+
+const ACTION_CONFIG: Record<ClockAction, { label: string; sublabel: string; icon: string; color: string; bg: string }> = {
+  start:      { label: 'Einstempeln',    sublabel: 'Schicht beginnen',   icon: '▶',  color: '#fff', bg: '#16A34A' },
+  end:        { label: 'Ausstempeln',    sublabel: 'Schicht beenden',    icon: '⏹',  color: '#fff', bg: '#DC2626' },
+  breakStart: { label: 'Pause starten',  sublabel: 'Arbeitsunterbrechung', icon: '⏸', color: '#fff', bg: '#D97706' },
+  breakEnd:   { label: 'Pause beenden', sublabel: 'Weiterarbeiten',      icon: '▶',  color: '#fff', bg: '#2563EB' },
+};
+
+function currentStatusLabel(entries: TimeEntry[]): { text: string; color: string } {
+  const actions = new Set(entries.map(e => e.action));
+  if (actions.has('end'))        return { text: 'Schicht beendet',        color: '#6B7280' };
+  if (actions.has('breakStart') && !actions.has('breakEnd'))
+                                  return { text: 'In Pause',               color: '#D97706' };
+  if (actions.has('start'))      return { text: 'Im Dienst',               color: '#16A34A' };
+  return                                { text: 'Noch nicht eingestempelt', color: '#9CA3AF' };
+}
 
 export default function KioskScreen({ facilityId, facilityName }: Props) {
   const now = useTicker();
-  const [pin, setPin]       = useState('');
-  const [screen, setScreen] = useState<Screen>('pin');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
-  const [azubi, setAzubi]   = useState<{ id: string; name: string } | null>(null);
-  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [pin, setPin]             = useState('');
+  const [screen, setScreen]       = useState<Screen>('pin');
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+  const [azubi, setAzubi]         = useState<{ id: string; name: string } | null>(null);
+  const [entries, setEntries]     = useState<TimeEntry[]>([]);
+  const [pending, setPending]     = useState<ClockAction | null>(null);
   const [lastAction, setLastAction] = useState<ClockAction | null>(null);
   const [countdown, setCountdown] = useState(AUTO_CLOSE_SECS);
-  const countRef = useRef(AUTO_CLOSE_SECS);
+  const countRef                  = useRef(AUTO_CLOSE_SECS);
 
   const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Auto-reset countdown on confirm screen
+  // Auto-reset countdown on success screen
   useEffect(() => {
-    if (screen !== 'confirm') return;
+    if (screen !== 'success') return;
     countRef.current = AUTO_CLOSE_SECS;
     setCountdown(AUTO_CLOSE_SECS);
     const t = setInterval(() => {
@@ -61,12 +78,8 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
   }, [screen]);
 
   function reset() {
-    setScreen('pin');
-    setPin('');
-    setAzubi(null);
-    setEntries([]);
-    setLastAction(null);
-    setError('');
+    setScreen('pin'); setPin(''); setAzubi(null);
+    setEntries([]); setPending(null); setLastAction(null); setError('');
   }
 
   const handleDigit = (d: string) => {
@@ -74,27 +87,18 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     setError('');
     setPin(p => p + d);
   };
-
   const handleDelete = () => setPin(p => p.slice(0, -1));
 
   const handlePinSubmit = useCallback(async () => {
     if (pin.length < 4) return;
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const found = await getAzubiByPin(facilityId, pin);
-      if (!found) {
-        setError('PIN ungültig. Bitte erneut versuchen.');
-        setPin('');
-        return;
-      }
+      if (!found) { setError('PIN ungültig. Bitte erneut versuchen.'); setPin(''); return; }
       const today = await getEntriesForDay(found.id);
-      setAzubi(found);
-      setEntries(today);
-      setScreen('action');
+      setAzubi(found); setEntries(today); setScreen('action');
     } catch {
-      setError('Verbindungsfehler. Bitte erneut versuchen.');
-      setPin('');
+      setError('Verbindungsfehler. Bitte erneut versuchen.'); setPin('');
     } finally {
       setLoading(false);
     }
@@ -104,27 +108,33 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     if (pin.length === 6) handlePinSubmit();
   }, [pin, handlePinSubmit]);
 
-  const handleClock = async (action: ClockAction) => {
-    if (!azubi) return;
+  function selectAction(action: ClockAction) {
+    setPending(action);
+    setScreen('preview');
+  }
+
+  async function confirmAction() {
+    if (!azubi || !pending) return;
     setLoading(true);
     try {
-      await clockAction(azubi.id, azubi.name, facilityId, action);
+      await clockAction(azubi.id, azubi.name, facilityId, pending);
       const updated = await getEntriesForDay(azubi.id);
       setEntries(updated);
-      setLastAction(action);
-      setScreen('confirm');
+      setLastAction(pending);
+      setScreen('success');
     } catch {
       setError('Fehler beim Speichern. Bitte erneut versuchen.');
+      setScreen('action');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   // ── PIN Screen ──────────────────────────────────────────────────────────────
   if (screen === 'pin') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
+        <StatusBar barStyle="light-content" backgroundColor="#111827" />
         <View style={styles.pinHeader}>
           <Text style={styles.pinFacility}>{facilityName}</Text>
           <Text style={styles.pinClock}>{timeStr}</Text>
@@ -172,93 +182,93 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
 
   // ── Action Screen ───────────────────────────────────────────────────────────
   if (screen === 'action' && azubi) {
-    const next = nextAction(entries);
-    const rec  = buildDailyRecord(entries);
-    const done = !next;
-
-    const BUTTONS: { action: ClockAction; label: string; icon: string; color: string; bg: string; darkBg: string }[] = [
-      { action: 'start',      label: 'Schicht beginnen', icon: '→',  color: '#fff', bg: '#2563EB', darkBg: '#1D4ED8' },
-      { action: 'end',        label: 'Schicht beenden',  icon: '⌂',  color: '#fff', bg: '#D97706', darkBg: '#B45309' },
-      { action: 'breakStart', label: 'Pause beginnen',   icon: '☕', color: '#fff', bg: '#374151', darkBg: '#1F2937' },
-      { action: 'breakEnd',   label: 'Pause beenden',    icon: '→',  color: '#fff', bg: '#374151', darkBg: '#1F2937' },
-    ];
+    const status = currentStatusLabel(entries);
+    const rec    = buildDailyRecord(entries);
 
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
+        <StatusBar barStyle="light-content" backgroundColor="#111827" />
+        <ScrollView contentContainerStyle={styles.actionScroll}>
 
-        <View style={styles.actionHeader}>
-          <Text style={styles.actionClock}>{timeStr}</Text>
-          <View style={styles.actionUserRow}>
-            <View style={styles.actionAvatar}>
-              <Text style={styles.actionAvatarText}>
-                {azubi.name.split(/\s|,/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()}
-              </Text>
-            </View>
-            <Text style={styles.actionUserName}>{azubi.name}</Text>
-          </View>
-        </View>
-
-        {/* Today's time log */}
-        {rec && (rec.startAt || rec.breakStartAt || rec.endAt) && (
-          <View style={styles.logTable}>
-            <View style={styles.logRow}>
-              <Text style={styles.logHeader}>Start</Text>
-              <Text style={styles.logHeader}>Ende</Text>
-            </View>
-            {rec.startAt && (
-              <View style={styles.logRow}>
-                <Text style={styles.logCell}>{fmtTime(rec.startAt)}</Text>
-                <Text style={styles.logCell}>{rec.endAt ? fmtTime(rec.endAt) : '–'}</Text>
+          {/* Header */}
+          <View style={styles.actionHeader}>
+            <Text style={styles.actionClock}>{timeStr}</Text>
+            <View style={styles.actionUserRow}>
+              <View style={styles.actionAvatar}>
+                <Text style={styles.actionAvatarText}>
+                  {azubi.name.split(/\s|,/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase()}
+                </Text>
               </View>
-            )}
-            {rec.breakStartAt && (
-              <View style={styles.logRow}>
-                <Text style={[styles.logCell, { color: '#D97706' }]}>{fmtTime(rec.breakStartAt)} (Pause)</Text>
-                <Text style={[styles.logCell, { color: '#D97706' }]}>{rec.breakEndAt ? fmtTime(rec.breakEndAt) : '–'}</Text>
+              <View>
+                <Text style={styles.actionUserName}>{azubi.name}</Text>
+                <Text style={[styles.actionStatus, { color: status.color }]}>{status.text}</Text>
               </View>
-            )}
+            </View>
           </View>
-        )}
 
-        {done ? (
-          <View style={styles.doneBox}>
-            <Text style={styles.doneText}>Schicht vollständig erfasst</Text>
-          </View>
-        ) : (
-          <View style={styles.buttonGrid}>
-            {BUTTONS.map(({ action, label, icon, color, bg, darkBg }) => {
-              const isDone = entries.some(e => e.action === action);
-              const isNext = action === next;
+          {/* Time log */}
+          {rec && (rec.startAt || rec.breakStartAt || rec.endAt) && (
+            <View style={styles.logTable}>
+              <View style={styles.logRow}>
+                <Text style={styles.logHeader}>Ereignis</Text>
+                <Text style={styles.logHeader}>Uhrzeit</Text>
+              </View>
+              {rec.startAt && (
+                <View style={styles.logRow}>
+                  <Text style={styles.logCell}>Eingestempelt</Text>
+                  <Text style={styles.logCell}>{fmtTime(rec.startAt)}</Text>
+                </View>
+              )}
+              {rec.breakStartAt && (
+                <View style={styles.logRow}>
+                  <Text style={[styles.logCell, { color: '#D97706' }]}>Pause begonnen</Text>
+                  <Text style={[styles.logCell, { color: '#D97706' }]}>{fmtTime(rec.breakStartAt)}</Text>
+                </View>
+              )}
+              {rec.breakEndAt && (
+                <View style={styles.logRow}>
+                  <Text style={styles.logCell}>Pause beendet</Text>
+                  <Text style={styles.logCell}>{fmtTime(rec.breakEndAt)}</Text>
+                </View>
+              )}
+              {rec.endAt && (
+                <View style={styles.logRow}>
+                  <Text style={[styles.logCell, { color: '#DC2626' }]}>Ausgestempelt</Text>
+                  <Text style={[styles.logCell, { color: '#DC2626' }]}>{fmtTime(rec.endAt)}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Action buttons — always all visible */}
+          <Text style={styles.actionPrompt}>Was möchtest du tun?</Text>
+          <View style={styles.actionGrid}>
+            {(Object.keys(ACTION_CONFIG) as ClockAction[]).map(action => {
+              const cfg = ACTION_CONFIG[action];
               return (
                 <TouchableOpacity
                   key={action}
-                  style={[
-                    styles.gridBtn,
-                    { backgroundColor: isDone ? '#9CA3AF' : bg },
-                    isNext && styles.gridBtnNext,
-                  ]}
-                  onPress={() => !isDone && handleClock(action)}
-                  disabled={loading || isDone}
-                  activeOpacity={0.75}
+                  style={[styles.actionBtn, { backgroundColor: cfg.bg }]}
+                  onPress={() => selectAction(action)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[styles.gridBtnIcon, { color }]}>{icon}</Text>
-                  <Text style={[styles.gridBtnLabel, { color }]}>{label}</Text>
-                  {isDone && <Text style={styles.gridBtnDone}>✓</Text>}
+                  <Text style={styles.actionBtnIcon}>{cfg.icon}</Text>
+                  <Text style={styles.actionBtnLabel}>{cfg.label}</Text>
+                  <Text style={styles.actionBtnSub}>{cfg.sublabel}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        )}
 
-        {error ? <Text style={styles.actionError}>{error}</Text> : null}
+          {error ? <Text style={styles.actionError}>{error}</Text> : null}
 
-        <TouchableOpacity style={styles.actionCancelBtn} onPress={reset} activeOpacity={0.7}>
-          <Text style={styles.actionCancelText}>Abbrechen</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelBtn} onPress={reset} activeOpacity={0.7}>
+            <Text style={styles.cancelText}>Abbrechen</Text>
+          </TouchableOpacity>
+        </ScrollView>
 
         {loading && (
-          <View style={styles.overlay}>
+          <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#fff" />
           </View>
         )}
@@ -266,50 +276,89 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     );
   }
 
-  // ── Confirm Screen ──────────────────────────────────────────────────────────
-  if (screen === 'confirm' && lastAction) {
+  // ── Preview / Confirmation Screen ───────────────────────────────────────────
+  if (screen === 'preview' && pending && azubi) {
+    const cfg = ACTION_CONFIG[pending];
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: cfg.bg }]}>
+        <StatusBar barStyle="light-content" backgroundColor={cfg.bg} />
+        <View style={styles.previewWrap}>
+          <Text style={styles.previewIcon}>{cfg.icon}</Text>
+          <Text style={styles.previewLabel}>{cfg.label}</Text>
+          <Text style={styles.previewName}>{azubi.name}</Text>
+          <Text style={styles.previewTime}>{timeStr}</Text>
+
+          <TouchableOpacity
+            style={styles.previewConfirmBtn}
+            onPress={confirmAction}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading
+              ? <ActivityIndicator color={cfg.bg} />
+              : <Text style={[styles.previewConfirmText, { color: cfg.bg }]}>Ja, bestätigen</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.previewBackBtn} onPress={() => setScreen('action')} activeOpacity={0.7}>
+            <Text style={styles.previewBackText}>← Zurück</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Success Screen ──────────────────────────────────────────────────────────
+  if (screen === 'success' && lastAction) {
+    const cfg = ACTION_CONFIG[lastAction];
     const rec = buildDailyRecord(entries);
-    const ACTION_LABELS: Record<ClockAction, string> = {
-      start:      'Schicht begonnen',
-      end:        'Schicht beendet',
-      breakStart: 'Pause begonnen',
-      breakEnd:   'Pause beendet',
-    };
 
     return (
-      <SafeAreaView style={[styles.root, { backgroundColor: '#1F2937' }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#1F2937" />
-        <View style={styles.confirmHeader}>
-          <Text style={styles.confirmAction}>
-            {ACTION_LABELS[lastAction]}  {now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+      <SafeAreaView style={[styles.root, { backgroundColor: '#111827' }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#111827" />
+        <View style={styles.successWrap}>
+          <View style={[styles.successIconBox, { backgroundColor: cfg.bg }]}>
+            <Text style={styles.successIcon}>✓</Text>
+          </View>
+          <Text style={styles.successLabel}>{cfg.label}</Text>
+          <Text style={styles.successName}>{azubi?.name}</Text>
+          <Text style={styles.successTime}>
+            {now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
           </Text>
-        </View>
 
-        <View style={styles.confirmCard}>
-          <View style={styles.confirmSuccess}>
-            <Text style={styles.confirmSuccessText}>Zeit erfasst für {azubi?.name}</Text>
-            <Text style={styles.confirmCountdown}>Schließt automatisch in {countdown} Sekunden</Text>
-          </View>
-
-          <View style={styles.logTable}>
-            <View style={styles.logRow}>
-              <Text style={styles.logHeader}>Start</Text>
-              <Text style={styles.logHeader}>Ende</Text>
+          {rec && (rec.startAt || rec.endAt) && (
+            <View style={styles.logTable}>
+              <View style={styles.logRow}>
+                <Text style={styles.logHeader}>Ereignis</Text>
+                <Text style={styles.logHeader}>Uhrzeit</Text>
+              </View>
+              {rec.startAt && (
+                <View style={styles.logRow}>
+                  <Text style={styles.logCell}>Eingestempelt</Text>
+                  <Text style={styles.logCell}>{fmtTime(rec.startAt)}</Text>
+                </View>
+              )}
+              {rec.breakStartAt && (
+                <View style={styles.logRow}>
+                  <Text style={[styles.logCell, { color: '#D97706' }]}>Pause begonnen</Text>
+                  <Text style={[styles.logCell, { color: '#D97706' }]}>{fmtTime(rec.breakStartAt)}</Text>
+                </View>
+              )}
+              {rec.breakEndAt && (
+                <View style={styles.logRow}>
+                  <Text style={styles.logCell}>Pause beendet</Text>
+                  <Text style={styles.logCell}>{fmtTime(rec.breakEndAt)}</Text>
+                </View>
+              )}
+              {rec.endAt && (
+                <View style={styles.logRow}>
+                  <Text style={[styles.logCell, { color: '#DC2626' }]}>Ausgestempelt</Text>
+                  <Text style={[styles.logCell, { color: '#DC2626' }]}>{fmtTime(rec.endAt)}</Text>
+                </View>
+              )}
             </View>
-            {rec?.startAt && (
-              <View style={styles.logRow}>
-                <Text style={styles.logCell}>{fmtTime(rec.startAt)}</Text>
-                <Text style={styles.logCell}>{rec.endAt ? fmtTime(rec.endAt) : '–'}</Text>
-              </View>
-            )}
-            {rec?.breakStartAt && (
-              <View style={styles.logRow}>
-                <Text style={[styles.logCell, { color: '#D97706' }]}>{fmtTime(rec.breakStartAt)} (Pause)</Text>
-                <Text style={[styles.logCell, { color: '#D97706' }]}>{rec.breakEndAt ? fmtTime(rec.breakEndAt) : '–'}</Text>
-              </View>
-            )}
-          </View>
+          )}
 
+          <Text style={styles.countdown}>Schließt automatisch in {countdown} Sekunden</Text>
           <TouchableOpacity style={styles.closeBtn} onPress={reset} activeOpacity={0.8}>
             <Text style={styles.closeBtnText}>Schließen</Text>
           </TouchableOpacity>
@@ -327,7 +376,7 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1F2937' },
+  root: { flex: 1, backgroundColor: '#111827' },
 
   // PIN screen
   pinHeader: { alignItems: 'center', paddingTop: 40, paddingBottom: 24 },
@@ -350,45 +399,52 @@ const styles = StyleSheet.create({
   confirmPinBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
   // Action screen
-  actionHeader: { backgroundColor: '#111827', paddingTop: 24, paddingBottom: 20, paddingHorizontal: 20, alignItems: 'center' },
+  actionScroll: { paddingBottom: 40 },
+  actionHeader: { backgroundColor: '#1F2937', paddingTop: 24, paddingBottom: 20, paddingHorizontal: 20, alignItems: 'center' },
   actionClock: { fontSize: 42, fontWeight: '700', color: '#fff' },
   actionUserRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, columnGap: 12 },
-  actionAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center' },
-  actionAvatarText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  actionAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#374151', justifyContent: 'center', alignItems: 'center' },
+  actionAvatarText: { fontSize: 17, fontWeight: '700', color: '#fff' },
   actionUserName: { fontSize: 18, fontWeight: '700', color: '#fff' },
+  actionStatus: { fontSize: 13, fontWeight: '600', marginTop: 2 },
+  actionPrompt: { fontSize: 14, fontWeight: '600', color: '#9CA3AF', textAlign: 'center', marginTop: 20, marginBottom: 12 },
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, rowGap: 12, columnGap: 12 },
+  actionBtn: { width: '47%', borderRadius: 16, paddingVertical: 24, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  actionBtnIcon: { fontSize: 28, color: '#fff', marginBottom: 8 },
+  actionBtnLabel: { fontSize: 16, fontWeight: '800', color: '#fff', textAlign: 'center' },
+  actionBtnSub: { fontSize: 11, color: 'rgba(255,255,255,0.75)', marginTop: 4, textAlign: 'center' },
+  actionError: { color: '#FCA5A5', fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 12, marginHorizontal: 20 },
+  cancelBtn: { paddingVertical: 20, alignItems: 'center', marginTop: 8 },
+  cancelText: { fontSize: 15, color: '#6B7280', fontWeight: '600' },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
 
-  // 2x2 button grid
-  buttonGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, rowGap: 12, columnGap: 12 },
-  gridBtn: { width: '47%', borderRadius: 16, paddingVertical: 28, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', minHeight: 110 },
-  gridBtnNext: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  gridBtnIcon: { fontSize: 24, marginBottom: 8 },
-  gridBtnLabel: { fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  gridBtnDone: { fontSize: 18, color: '#fff', marginTop: 6 },
+  // Preview screen
+  previewWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  previewIcon: { fontSize: 64, color: '#fff', marginBottom: 12 },
+  previewLabel: { fontSize: 28, fontWeight: '800', color: '#fff', textAlign: 'center' },
+  previewName: { fontSize: 18, fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginTop: 8 },
+  previewTime: { fontSize: 15, color: 'rgba(255,255,255,0.7)', marginTop: 4, marginBottom: 40 },
+  previewConfirmBtn: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginBottom: 16 },
+  previewConfirmText: { fontSize: 18, fontWeight: '800' },
+  previewBackBtn: { paddingVertical: 14 },
+  previewBackText: { fontSize: 15, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
 
-  doneBox: { margin: 20, backgroundColor: '#065F46', borderRadius: 14, padding: 24, alignItems: 'center' },
-  doneText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  // Success screen
+  successWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  successIconBox: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  successIcon: { fontSize: 36, color: '#fff' },
+  successLabel: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  successName: { fontSize: 16, fontWeight: '600', color: '#9CA3AF', marginTop: 6 },
+  successTime: { fontSize: 32, fontWeight: '700', color: '#fff', marginTop: 8, marginBottom: 24 },
+  countdown: { fontSize: 13, color: '#6B7280', marginTop: 16, marginBottom: 16 },
+  closeBtn: { backgroundColor: '#374151', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40 },
+  closeBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  // Time log table
-  logTable: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, overflow: 'hidden' },
+  // Shared: log table
+  logTable: { backgroundColor: '#fff', marginHorizontal: 16, marginTop: 12, borderRadius: 12, overflow: 'hidden', width: '90%' },
   logRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   logHeader: { flex: 1, fontSize: 12, fontWeight: '700', color: '#6B7280', padding: 10, backgroundColor: '#F9FAFB' },
   logCell: { flex: 1, fontSize: 14, fontWeight: '600', color: BRAND.textPrimary, padding: 10 },
-
-  actionError: { color: '#FCA5A5', fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 8, marginHorizontal: 20 },
-  actionCancelBtn: { marginTop: 'auto' as any, paddingVertical: 20, alignItems: 'center' },
-  actionCancelText: { fontSize: 15, color: '#9CA3AF', fontWeight: '600' },
-
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-
-  // Confirm screen
-  confirmHeader: { backgroundColor: '#374151', paddingVertical: 20, paddingHorizontal: 20 },
-  confirmAction: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center' },
-  confirmCard: { backgroundColor: '#fff', margin: 20, borderRadius: 16, overflow: 'hidden' },
-  confirmSuccess: { backgroundColor: '#D1FAE5', padding: 16, alignItems: 'center' },
-  confirmSuccessText: { fontSize: 14, fontWeight: '700', color: '#065F46' },
-  confirmCountdown: { fontSize: 12, color: '#065F46', marginTop: 4 },
-  closeBtn: { margin: 16, backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  closeBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   // Badge
   kioskBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, columnGap: 6 },
