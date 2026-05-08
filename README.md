@@ -99,26 +99,6 @@ npx expo export -p web && firebase deploy --only hosting
 
 ---
 
-## AI Agent Workflow
-
-This project was built using a human-AI collaboration model as part of a university study on AI-assisted software development.
-
-**Human role — Abraham T. Borbor Jr.**
-Product owner and domain expert on the German nursing Ausbildung system. Abraham makes all architectural and product decisions, defines requirements, validates outputs, and is the single source of truth for what gets built and why.
-
-**AI role — Claude (Anthropic)**
-Claude.ai was used for planning, research, and drafting the project brief. Claude Code (VS Code extension) was used for all implementation — scaffolding the project, building screens, wiring Firebase, and refactoring based on feedback. Claude writes no code without a clear brief.
-
-**How we use Plan Mode**
-Every significant feature begins with a written brief. Claude Code is run in Plan Mode to outline exactly what files it will create or modify and what logic it will implement. Abraham reviews and approves the plan before any file is touched. This prevents unwanted changes and keeps the human in control of the codebase.
-
-**Source of truth**
-The project brief document (`pflegeazubi_brief.pdf`) is attached at the start of every new Claude Code session. Because Claude Code does not persist conversation history between sessions, the brief re-establishes full context — data model, role system, feature list, build order, and design decisions — so the AI can continue without re-explaining from scratch.
-
-**Async development**
-Claude Code can be given a well-defined task and runs largely unattended while Abraham works on user research, survey outreach, or thesis writing. Results are reviewed and tested before merging.
-
----
 
 ## Evaluation Dimensions
 
