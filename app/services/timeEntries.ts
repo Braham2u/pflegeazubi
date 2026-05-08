@@ -200,13 +200,16 @@ export async function getAzubiByPin(
 ): Promise<{ id: string; name: string } | null> {
   if (!db) return null;
 
-  const q = query(
-    collection(db, 'users'),
-    where('primaryFacilityId', '==', facilityId),
-    where('clockPin', '==', pin),
-  );
+  // Query by clockPin only (single field — no composite index required).
+  // Verify the facilityId match in JS.
+  const q = query(collection(db, 'users'), where('clockPin', '==', pin));
   const snap = await getDocs(q);
   if (snap.empty) return null;
-  const data = snap.docs[0].data();
-  return { id: snap.docs[0].id, name: data.name as string };
+
+  const match = snap.docs.find(d => {
+    const data = d.data();
+    return !facilityId || data.primaryFacilityId === facilityId;
+  });
+  if (!match) return null;
+  return { id: match.id, name: match.data().name as string };
 }

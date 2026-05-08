@@ -171,7 +171,8 @@ export default function SubAdminListScreen() {
                     <View style={styles.successIcon}><Text style={{ fontSize: 36 }}>✓</Text></View>
                     <Text style={styles.sheetName}>Sub-Admin erstellt!</Text>
                     <Text style={styles.subtitle}>
-                      Teile diese Zugangsdaten per WhatsApp oder SMS mit.
+                      Eine E-Mail mit einem Passwort-Link wurde an {inviteResult.email} gesendet.
+                      Falls keine E-Mail ankommt (Spam prüfen!), nutze das temporäre Passwort unten.
                     </Text>
                     <View style={styles.credBox}>
                       <View style={styles.credRow}>
@@ -179,12 +180,12 @@ export default function SubAdminListScreen() {
                         <Text style={styles.credValue}>{inviteResult.email}</Text>
                       </View>
                       <View style={[styles.credRow, { borderBottomWidth: 0 }]}>
-                        <Text style={styles.credLabel}>Temp. Passwort</Text>
+                        <Text style={styles.credLabel}>Temp. Passwort (Backup)</Text>
                         <Text style={styles.credValue}>{inviteResult.tempPassword}</Text>
                       </View>
                     </View>
                     <Text style={styles.credHint}>
-                      Das Passwort kann jederzeit über "Passwort vergessen" geändert werden.
+                      Das Passwort kann jederzeit über "Passwort vergessen" auf der Login-Seite geändert werden.
                     </Text>
                     <TouchableOpacity style={styles.sendBtn} onPress={() => setShowInvite(false)} activeOpacity={0.8}>
                       <Text style={styles.sendBtnText}>Fertig</Text>
