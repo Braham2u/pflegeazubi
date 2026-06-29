@@ -79,6 +79,21 @@ export interface DailyTimeRecord {
   overtimeMinutes?: number;
 }
 
+// ── Rotation Plan ───────────────────────────────────────────────────────────
+
+export type FacilityType = 'hospital' | 'careHome' | 'ambulatory' | 'school' | 'other';
+
+export interface Rotation {
+  id: string;
+  azubiId: string;
+  facilityName: string;
+  unitName?: string;
+  facilityType: FacilityType;
+  startDate: string;  // YYYY-MM-DD
+  endDate: string;    // YYYY-MM-DD
+  notes?: string;
+}
+
 // ── Correction Requests ─────────────────────────────────────────────────────
 
 export interface CorrectionRequest {

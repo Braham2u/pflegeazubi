@@ -64,6 +64,18 @@ export async function getWeekShiftsForAzubis(azubiIds: string[], weekStart: stri
   return results.flat();
 }
 
+export async function getUpcomingShift(azubiId: string): Promise<Shift | null> {
+  if (!db) return null;
+  const today = new Date().toISOString().split('T')[0];
+  const q = query(collection(db, 'shifts'), where('azubiId', '==', azubiId));
+  const snap = await getDocs(q);
+  const upcoming = snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Shift))
+    .filter(s => s.date >= today && s.shiftType !== 'free')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return upcoming[0] ?? null;
+}
+
 export async function createShift(shift: Omit<Shift, 'id'>): Promise<string> {
   if (!db) throw new Error('Firebase not configured');
   const ref = await addDoc(collection(db, 'shifts'), shift);

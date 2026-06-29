@@ -205,6 +205,24 @@ export default function TraineeListScreen() {
                   )}
                 </View>
 
+                {/* Rotation plan */}
+                <TouchableOpacity
+                  style={styles.rotationBtn}
+                  onPress={() => {
+                    setSelected(null);
+                    setNewPin(null);
+                    (navigation as any).navigate('traineeRotation', {
+                      azubiId: selected!.id,
+                      azubiName: selected!.name,
+                    });
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.rotationBtnIcon}>🔄</Text>
+                  <Text style={styles.rotationBtnText}>Rotationsplan verwalten</Text>
+                  <Text style={styles.rotationBtnArrow}>›</Text>
+                </TouchableOpacity>
+
                 {/* Delete — main admin only */}
                 {isMainAdmin && (
                   <TouchableOpacity
@@ -417,7 +435,14 @@ const styles = StyleSheet.create({
   pinBoxHint: { fontSize: 11, color: ADMIN_PURPLE, marginTop: 4 },
   regenPinBtn: { backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   regenPinBtnText: { fontSize: 13, fontWeight: '700', color: '#92400E' },
-  deleteBtn: { marginTop: 20, backgroundColor: '#FEE2E2', borderRadius: 12, paddingVertical: 14, alignItems: 'center', width: '100%' },
+  rotationBtn: {
+    marginTop: 16, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#EDE9FE', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
+  },
+  rotationBtnIcon: { fontSize: 18, marginRight: 10 },
+  rotationBtnText: { flex: 1, fontSize: 14, fontWeight: '700', color: '#5B21B6' },
+  rotationBtnArrow: { fontSize: 20, color: '#5B21B6' },
+  deleteBtn: { marginTop: 12, backgroundColor: '#FEE2E2', borderRadius: 12, paddingVertical: 14, alignItems: 'center', width: '100%' },
   deleteBtnText: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
   inviteSheetTop: { alignItems: 'center', marginBottom: 16 },
   closeBtn: { position: 'absolute', right: 0, top: -8, padding: 8 },

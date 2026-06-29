@@ -7,28 +7,33 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { signInAsKiosk } from '../services/auth';
 import LoginScreen from '../screens/LoginScreen';
+import HomeScreen from '../screens/HomeScreen';
 import ShiftPlanScreen from '../screens/ShiftPlanScreen';
 import WorkingTimeScreen from '../screens/WorkingTimeScreen';
 import AvailabilityScreen from '../screens/AvailabilityScreen';
+import RotationPlanScreen from '../screens/RotationPlanScreen';
 import AccountScreen from '../screens/AccountScreen';
 import DashboardScreen from '../screens/admin/DashboardScreen';
 import ShiftPublisherScreen from '../screens/admin/ShiftPublisherScreen';
 import WishesScreen from '../screens/admin/WishesScreen';
 import TraineeListScreen from '../screens/admin/TraineeListScreen';
+import TraineeRotationScreen from '../screens/admin/TraineeRotationScreen';
 import SubAdminListScreen from '../screens/admin/SubAdminListScreen';
 import AttendanceScreen from '../screens/admin/AttendanceScreen';
 import KioskScreen from '../screens/KioskScreen';
 import { BRAND, ADMIN_PURPLE } from '../constants/colors';
 
 const AzubiTab   = createBottomTabNavigator();
+const AzubiStack = createNativeStackNavigator();
 const AdminTab   = createBottomTabNavigator();
 const AdminStack = createNativeStackNavigator();
 
-// Renders as a real component so it subscribes to LanguageContext itself.
 function TabLabel({ name, color }: { name: string; color: string }) {
   const { t } = useLang();
   const labels: Record<string, string> = {
+    home:             'Start',
     shiftPlan:        t.tabs.shiftPlan,
+    rotation:         'Rotation',
     workingTime:      t.tabs.workingTime,
     availability:     t.tabs.availability,
     profile:          t.tabs.profile,
@@ -47,13 +52,13 @@ function TabLabel({ name, color }: { name: string; color: string }) {
 }
 
 const AZUBI_ICONS: Record<string, string> = {
-  shiftPlan: '📅', workingTime: '⏱', availability: '✋', profile: '👤',
+  home: '🏠', shiftPlan: '📅', rotation: '🔄', workingTime: '⏱', availability: '✋', profile: '👤',
 };
 const ADMIN_ICONS: Record<string, string> = {
   adminDashboard: '📊', adminAttendance: '🟢', shiftPublisher: '📋', adminWishes: '✋', adminProfile: '👤',
 };
 
-// ── Admin bottom tabs (5 tabs) ────────────────────────────────────────────────
+// ── Admin bottom tabs ─────────────────────────────────────────────────────────
 function AdminTabs() {
   return (
     <AdminTab.Navigator
@@ -79,7 +84,7 @@ function AdminTabs() {
   );
 }
 
-// ── Admin stack (tabs + kiosk + trainees as modal/stack screens) ─────────────
+// ── Admin stack ───────────────────────────────────────────────────────────────
 function AdminNavigator() {
   const { userProfile } = useAuth();
   const facilityId   = userProfile?.primaryFacilityId ?? '';
@@ -87,9 +92,10 @@ function AdminNavigator() {
 
   return (
     <AdminStack.Navigator screenOptions={{ headerShown: false }}>
-      <AdminStack.Screen name="adminTabs"  component={AdminTabs} />
-      <AdminStack.Screen name="trainees"    component={TraineeListScreen} />
-      <AdminStack.Screen name="subAdmins"  component={SubAdminListScreen} />
+      <AdminStack.Screen name="adminTabs"      component={AdminTabs} />
+      <AdminStack.Screen name="trainees"       component={TraineeListScreen} />
+      <AdminStack.Screen name="subAdmins"      component={SubAdminListScreen} />
+      <AdminStack.Screen name="traineeRotation" component={TraineeRotationScreen} />
       <AdminStack.Screen
         name="kiosk"
         options={{ presentation: 'fullScreenModal' }}
@@ -100,8 +106,8 @@ function AdminNavigator() {
   );
 }
 
-// ── Azubi bottom tabs ─────────────────────────────────────────────────────────
-function MainTabs() {
+// ── Azubi bottom tabs (5 tabs) ────────────────────────────────────────────────
+function AzubiTabs() {
   return (
     <AzubiTab.Navigator
       screenOptions={({ route }) => ({
@@ -117,11 +123,22 @@ function MainTabs() {
         tabBarStyle: { borderTopColor: BRAND.border, backgroundColor: BRAND.surface },
       })}
     >
+      <AzubiTab.Screen name="home"         component={HomeScreen} />
       <AzubiTab.Screen name="shiftPlan"    component={ShiftPlanScreen} />
-      <AzubiTab.Screen name="workingTime"  component={WorkingTimeScreen} />
+      <AzubiTab.Screen name="rotation"     component={RotationPlanScreen} />
       <AzubiTab.Screen name="availability" component={AvailabilityScreen} />
       <AzubiTab.Screen name="profile"      component={AccountScreen} />
     </AzubiTab.Navigator>
+  );
+}
+
+// ── Azubi stack (tabs + working time as push screen) ─────────────────────────
+function AzubiNavigator() {
+  return (
+    <AzubiStack.Navigator screenOptions={{ headerShown: false }}>
+      <AzubiStack.Screen name="azubiTabs"   component={AzubiTabs} />
+      <AzubiStack.Screen name="workingTime" component={WorkingTimeScreen} />
+    </AzubiStack.Navigator>
   );
 }
 
@@ -140,7 +157,6 @@ export default function AppNavigator() {
     }
   }, []);
 
-  // Kiosk mode: standalone page, no admin UI, no auth required
   if (kioskMode) {
     return <KioskScreen facilityId="fac1" facilityName="Caritas St. Konrad" />;
   }
@@ -158,7 +174,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer key={navKey}>
       {userProfile
-        ? (userProfile.role === 'admin' || userProfile.role === 'subAdmin') ? <AdminNavigator /> : <MainTabs />
+        ? (userProfile.role === 'admin' || userProfile.role === 'subAdmin') ? <AdminNavigator /> : <AzubiNavigator />
         : <LoginScreen />}
     </NavigationContainer>
   );
