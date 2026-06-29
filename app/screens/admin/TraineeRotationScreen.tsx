@@ -70,6 +70,17 @@ const EMPTY_FORM: FormState = {
   notes: '',
 };
 
+const DEMO_PLAN: Omit<Parameters<typeof addRotation>[0], 'azubiId'>[] = [
+  { facilityName: 'Caritas St. Konrad',       unitName: 'Wohnbereich 1',   facilityType: 'careHome',   startDate: '2024-09-01', endDate: '2025-02-28', notes: 'Grundpflege & Alltagsgestaltung' },
+  { facilityName: 'Städtisches Klinikum',     unitName: 'Innere Medizin',  facilityType: 'hospital',   startDate: '2025-03-01', endDate: '2025-05-31' },
+  { facilityName: 'Sozialstation Nord',        unitName: undefined,          facilityType: 'ambulatory', startDate: '2025-06-01', endDate: '2025-08-31', notes: 'Häusliche Pflege' },
+  { facilityName: 'Seniorenresidenz Am Park', unitName: 'Demenzstation',   facilityType: 'careHome',   startDate: '2025-09-01', endDate: '2026-01-31' },
+  { facilityName: 'Städtisches Klinikum',     unitName: 'Chirurgie',       facilityType: 'hospital',   startDate: '2026-02-01', endDate: '2026-07-31', notes: 'Aktueller Einsatz' },
+  { facilityName: 'Universitätsklinikum',     unitName: 'Intensivstation', facilityType: 'hospital',   startDate: '2026-08-01', endDate: '2026-11-30' },
+  { facilityName: 'Rotes Kreuz Klinik',       unitName: 'Geriatrie',       facilityType: 'hospital',   startDate: '2026-12-01', endDate: '2027-02-28' },
+  { facilityName: 'Praxisanleiterzentrum',    unitName: 'Abschlussphase',  facilityType: 'other',      startDate: '2027-03-01', endDate: '2027-08-31', notes: 'Examensvorbereitung' },
+];
+
 export default function TraineeRotationScreen() {
   const navigation  = useNavigation();
   const route       = useRoute<any>();
@@ -80,6 +91,7 @@ export default function TraineeRotationScreen() {
   const [showAdd, setShowAdd]     = useState(false);
   const [form, setForm]           = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving]       = useState(false);
+  const [seeding, setSeeding]     = useState(false);
   const [error, setError]         = useState('');
 
   const load = useCallback(async () => {
@@ -130,6 +142,16 @@ export default function TraineeRotationScreen() {
     } catch { /* ignore */ }
   }
 
+  async function handleSeedDemo() {
+    setSeeding(true);
+    try {
+      await Promise.all(DEMO_PLAN.map(entry => addRotation({ ...entry, azubiId })));
+      load();
+    } catch { /* ignore */ } finally {
+      setSeeding(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -154,6 +176,17 @@ export default function TraineeRotationScreen() {
             <Text style={styles.emptyIcon}>🔄</Text>
             <Text style={styles.emptyTitle}>Noch kein Rotationsplan</Text>
             <Text style={styles.emptyText}>Füge die Ausbildungseinsätze für {azubiName} hinzu.</Text>
+            <TouchableOpacity
+              style={styles.demoBtn}
+              onPress={handleSeedDemo}
+              disabled={seeding}
+              activeOpacity={0.8}
+            >
+              {seeding
+                ? <ActivityIndicator color={ADMIN_PURPLE} />
+                : <Text style={styles.demoBtnText}>✨ Demo-Plan einfügen (3 Jahre)</Text>
+              }
+            </TouchableOpacity>
           </View>
         ) : (
           rotations.map((r, index) => {
@@ -279,6 +312,8 @@ const styles = StyleSheet.create({
   emptyIcon:  { fontSize: 48, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 8 },
   emptyText:  { fontSize: 14, color: BRAND.textSecondary, textAlign: 'center', lineHeight: 20 },
+  demoBtn:    { marginTop: 20, backgroundColor: ADMIN_PURPLE_LIGHT, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12, minWidth: 200, alignItems: 'center' },
+  demoBtnText:{ fontSize: 14, fontWeight: '700', color: ADMIN_PURPLE },
 
   timelineItem: { flexDirection: 'row', marginBottom: 4 },
   timelineLeft: { alignItems: 'center', width: 28, marginTop: 8 },

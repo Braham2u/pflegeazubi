@@ -58,6 +58,40 @@ const ADMIN_ICONS: Record<string, string> = {
   adminDashboard: '📊', adminAttendance: '🟢', shiftPublisher: '📋', adminWishes: '✋', adminProfile: '👤',
 };
 
+const WEB_PREFIX = typeof window !== 'undefined' ? window.location.origin : 'https://pflegeazubi.web.app';
+
+const linking = {
+  prefixes: [WEB_PREFIX],
+  config: {
+    screens: {
+      adminTabs: {
+        path: 'admin',
+        screens: {
+          adminDashboard:  { path: '' },
+          adminAttendance: { path: 'attendance' },
+          shiftPublisher:  { path: 'shifts' },
+          adminWishes:     { path: 'wishes' },
+          adminProfile:    { path: 'profile' },
+        },
+      },
+      trainees:        { path: 'admin/trainees' },
+      subAdmins:       { path: 'admin/sub-admins' },
+      traineeRotation: { path: 'admin/trainees/rotation' },
+      azubiTabs: {
+        path: '',
+        screens: {
+          home:         { path: '' },
+          shiftPlan:    { path: 'plan' },
+          rotation:     { path: 'rotation' },
+          availability: { path: 'availability' },
+          profile:      { path: 'profile' },
+        },
+      },
+      workingTime: { path: 'working-time' },
+    },
+  },
+};
+
 // ── Admin bottom tabs ─────────────────────────────────────────────────────────
 function AdminTabs() {
   return (
@@ -172,7 +206,7 @@ export default function AppNavigator() {
   const navKey = userProfile?.role ?? 'login';
 
   return (
-    <NavigationContainer key={navKey}>
+    <NavigationContainer key={navKey} linking={linking}>
       {userProfile
         ? (userProfile.role === 'admin' || userProfile.role === 'subAdmin') ? <AdminNavigator /> : <AzubiNavigator />
         : <LoginScreen />}
