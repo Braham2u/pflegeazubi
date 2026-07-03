@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  Linking, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -25,6 +26,18 @@ const SHIFT_TYPE_LABELS: Record<string, string> = {
   school:   'Berufsschule',
   external: 'Extern',
 };
+
+function openInMaps(facilityName: string, unitName?: string | null) {
+  const query = encodeURIComponent([facilityName, unitName].filter(Boolean).join(' '));
+  const url = Platform.OS === 'ios'
+    ? `maps://0,0?q=${query}`
+    : Platform.OS === 'android'
+    ? `geo:0,0?q=${query}`
+    : `https://maps.google.com/?q=${query}`;
+  Linking.openURL(url).catch(() =>
+    Linking.openURL(`https://maps.google.com/?q=${query}`)
+  );
+}
 
 function greeting(name: string): string {
   const h = new Date().getHours();
@@ -159,7 +172,16 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.shiftDate}>{fmtDate(nextShift.date)}</Text>
                 {nextShift.facilityName ? (
-                  <Text style={styles.shiftFacility}>📍 {nextShift.facilityName}</Text>
+                  <TouchableOpacity
+                    onPress={() => openInMaps(nextShift.facilityName, nextShift.unitName)}
+                    activeOpacity={0.75}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    <Text style={[styles.shiftFacility, styles.shiftFacilityLink]}>
+                      📍 {nextShift.facilityName}{'  '}
+                      <Text style={styles.mapHint}>Karte öffnen →</Text>
+                    </Text>
+                  </TouchableOpacity>
                 ) : null}
                 {daysUntil(nextShift.date) === 0 && (
                   <View style={styles.todayBadge}>
@@ -265,6 +287,8 @@ const styles = StyleSheet.create({
   shiftTimeBadgeText: { fontSize: 13, fontWeight: '700', color: '#1D4ED8' },
   shiftDate: { fontSize: 14, color: BRAND.textSecondary, marginBottom: 4 },
   shiftFacility: { fontSize: 13, color: BRAND.textSecondary, marginBottom: 8 },
+  shiftFacilityLink: { color: BRAND.primary },
+  mapHint: { fontSize: 11, color: '#2563EB', fontWeight: '700' },
   todayBadge: { alignSelf: 'flex-start', backgroundColor: '#D1FAE5', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
   todayBadgeText: { fontSize: 12, fontWeight: '700', color: '#065F46' },
 

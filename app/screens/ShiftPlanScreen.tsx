@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, ActivityIndicator,
+  Linking, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Shift } from '../types';
@@ -44,6 +45,18 @@ function getKW(date: Date): number {
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+function openInMaps(facilityName: string, unitName?: string | null) {
+  const query = encodeURIComponent([facilityName, unitName].filter(Boolean).join(' '));
+  const url = Platform.OS === 'ios'
+    ? `maps://0,0?q=${query}`
+    : Platform.OS === 'android'
+    ? `geo:0,0?q=${query}`
+    : `https://maps.google.com/?q=${query}`;
+  Linking.openURL(url).catch(() =>
+    Linking.openURL(`https://maps.google.com/?q=${query}`)
+  );
 }
 
 export default function ShiftPlanScreen() {
@@ -163,8 +176,25 @@ export default function ShiftPlanScreen() {
               {selected.breakMinutes > 0 ? (
                 <DetailRow label={t.shiftPlan.pause} value={`${selected.breakMinutes} ${t.shiftPlan.min}`} />
               ) : null}
-              <DetailRow label={t.shiftPlan.facility} value={selected.facilityName} />
-              {selected.unitName ? <DetailRow label={t.shiftPlan.unit} value={selected.unitName} /> : null}
+              {selected.facilityName ? (
+                <TouchableOpacity
+                  style={styles.mapRow}
+                  onPress={() => openInMaps(selected.facilityName, selected.unitName)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.mapRowInner}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.detailLabel}>{t.shiftPlan.facility}</Text>
+                      <Text style={styles.mapFacilityName}>{selected.facilityName}</Text>
+                      {selected.unitName ? <Text style={styles.mapUnitName}>{selected.unitName}</Text> : null}
+                    </View>
+                    <View style={styles.mapIconBadge}>
+                      <Text style={styles.mapIconText}>🗺</Text>
+                      <Text style={styles.mapOpenText}>Öffnen</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
               {selected.supervisor ? <DetailRow label={t.shiftPlan.supervisor} value={selected.supervisor} /> : null}
               {selected.notes ? <DetailRow label={t.shiftPlan.note} value={selected.notes} /> : null}
             </View>
@@ -183,6 +213,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BRAND.background },
@@ -220,4 +251,19 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BRAND.border },
   detailLabel: { width: 120, fontSize: 14, color: BRAND.textSecondary },
   detailValue: { flex: 1, fontSize: 14, color: BRAND.textPrimary, fontWeight: '500' },
+
+  mapRow: {
+    borderBottomWidth: 1, borderBottomColor: BRAND.border,
+    paddingVertical: 10,
+  },
+  mapRowInner: { flexDirection: 'row', alignItems: 'center' },
+  mapFacilityName: { fontSize: 14, fontWeight: '700', color: BRAND.primary, marginTop: 2 },
+  mapUnitName: { fontSize: 12, color: BRAND.textSecondary, marginTop: 1 },
+  mapIconBadge: {
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#EFF6FF', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8, marginLeft: 12,
+  },
+  mapIconText: { fontSize: 18 },
+  mapOpenText: { fontSize: 10, fontWeight: '700', color: '#2563EB', marginTop: 2 },
 });
