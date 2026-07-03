@@ -21,6 +21,7 @@ import TraineeRotationScreen from '../screens/admin/TraineeRotationScreen';
 import SubAdminListScreen from '../screens/admin/SubAdminListScreen';
 import AttendanceScreen from '../screens/admin/AttendanceScreen';
 import KioskScreen from '../screens/KioskScreen';
+import AzubiSidebar from '../components/AzubiSidebar';
 import { BRAND, ADMIN_PURPLE } from '../constants/colors';
 
 const AzubiTab   = createBottomTabNavigator();
@@ -51,9 +52,6 @@ function TabLabel({ name, color }: { name: string; color: string }) {
   );
 }
 
-const AZUBI_ICONS: Record<string, string> = {
-  home: '🏠', shiftPlan: '📅', rotation: '🔄', workingTime: '⏱', availability: '✋', profile: '👤',
-};
 const ADMIN_ICONS: Record<string, string> = {
   adminDashboard: '📊', adminAttendance: '🟢', shiftPublisher: '📋', adminWishes: '✋', adminProfile: '👤',
 };
@@ -140,22 +138,12 @@ function AdminNavigator() {
   );
 }
 
-// ── Azubi bottom tabs (5 tabs) ────────────────────────────────────────────────
+// ── Azubi tabs — sidebar replaces the bottom tab bar ─────────────────────────
 function AzubiTabs() {
   return (
     <AzubiTab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>
-            {AZUBI_ICONS[route.name]}
-          </Text>
-        ),
-        tabBarLabel: ({ color }) => <TabLabel name={route.name} color={color} />,
-        tabBarActiveTintColor: BRAND.primary,
-        tabBarInactiveTintColor: BRAND.textSecondary,
-        tabBarStyle: { borderTopColor: BRAND.border, backgroundColor: BRAND.surface },
-      })}
+      tabBar={(props) => <AzubiSidebar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
       <AzubiTab.Screen name="home"         component={HomeScreen} />
       <AzubiTab.Screen name="shiftPlan"    component={ShiftPlanScreen} />
