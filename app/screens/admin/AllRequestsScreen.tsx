@@ -104,7 +104,12 @@ export default function AllRequestsScreen() {
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={s.back} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={s.back}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+          >
             <Text style={s.backText}>‹ Dashboard</Text>
           </TouchableOpacity>
           <Text style={s.title}>{t.placementRequest.adminTitle}</Text>
@@ -235,7 +240,7 @@ const s = StyleSheet.create({
   safe:     { flex: 1, backgroundColor: BRAND.background },
   scroll:   { padding: 20, paddingBottom: 40 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  back:     { marginRight: 12 },
+  back:     { paddingVertical: 10, paddingRight: 12 },
   backText: { fontSize: 15, color: ADMIN_PURPLE, fontWeight: '600' },
   title:    { fontSize: 22, fontWeight: '800', color: BRAND.textPrimary },
   sectionLabel: {
