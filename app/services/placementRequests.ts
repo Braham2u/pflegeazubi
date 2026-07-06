@@ -59,7 +59,9 @@ export async function respondToRequest(
   adminResponse?: string,
 ): Promise<void> {
   if (!db) throw new Error('Firebase nicht verfügbar');
-  const update: Record<string, unknown> = { status, respondedAt: Date.now() };
-  if (adminResponse) update.adminResponse = adminResponse;
-  await updateDoc(doc(db, 'placementRequests', requestId), update);
+  await updateDoc(doc(db, 'placementRequests', requestId), {
+    status,
+    respondedAt: Date.now(),
+    ...(adminResponse ? { adminResponse } : {}),
+  });
 }

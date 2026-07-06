@@ -115,8 +115,8 @@ export default function PlacementRequestFormScreen() {
         startMonth,
         endMonth,
         status:    'pending',
-        note:      note.trim() || undefined,
         createdAt: Date.now(),
+        ...(note.trim() ? { note: note.trim() } : {}),
       });
       setSuccess(true);
       setTimeout(() => navigation.goBack(), 1200);
