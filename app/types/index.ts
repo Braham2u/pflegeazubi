@@ -83,6 +83,31 @@ export interface DailyTimeRecord {
 
 export type FacilityType = 'hospital' | 'careHome' | 'ambulatory' | 'school' | 'other';
 
+export interface Facility {
+  id: string;
+  name: string;
+  type: FacilityType;
+  address?: string;
+  city?: string;
+}
+
+export type PlacementRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PlacementRequest {
+  id: string;
+  traineeId: string;
+  traineeName: string;
+  facilityId: string;
+  facilityName: string;
+  startMonth: string;   // 'YYYY-MM'
+  endMonth: string;     // 'YYYY-MM'
+  status: PlacementRequestStatus;
+  note?: string;
+  createdAt: number;
+  respondedAt?: number;
+  adminResponse?: string;
+}
+
 export interface Rotation {
   id: string;
   azubiId: string;

@@ -22,6 +22,11 @@ import SubAdminListScreen from '../screens/admin/SubAdminListScreen';
 import AttendanceScreen from '../screens/admin/AttendanceScreen';
 import KioskScreen from '../screens/KioskScreen';
 import AzubiSidebar from '../components/AzubiSidebar';
+import FacilitiesListScreen from '../screens/FacilitiesListScreen';
+import PlacementRequestFormScreen from '../screens/PlacementRequestFormScreen';
+import MyRequestsScreen from '../screens/MyRequestsScreen';
+import AllRequestsScreen from '../screens/admin/AllRequestsScreen';
+import IncomingTraineesScreen from '../screens/admin/IncomingTraineesScreen';
 import { BRAND, ADMIN_PURPLE } from '../constants/colors';
 
 const AzubiTab   = createBottomTabNavigator();
@@ -82,10 +87,15 @@ const linking = {
           shiftPlan:    { path: 'plan' },
           rotation:     { path: 'rotation' },
           availability: { path: 'availability' },
+          myRequests:   { path: 'requests' },
           profile:      { path: 'profile' },
         },
       },
-      workingTime: { path: 'working-time' },
+      workingTime:           { path: 'working-time' },
+      facilities:            { path: 'facilities' },
+      placementRequestForm:  { path: 'facilities/request' },
+      allRequests:           { path: 'admin/requests' },
+      incomingTrainees:      { path: 'admin/incoming' },
     },
   },
 };
@@ -124,10 +134,12 @@ function AdminNavigator() {
 
   return (
     <AdminStack.Navigator screenOptions={{ headerShown: false }}>
-      <AdminStack.Screen name="adminTabs"      component={AdminTabs} />
-      <AdminStack.Screen name="trainees"       component={TraineeListScreen} />
-      <AdminStack.Screen name="subAdmins"      component={SubAdminListScreen} />
-      <AdminStack.Screen name="traineeRotation" component={TraineeRotationScreen} />
+      <AdminStack.Screen name="adminTabs"        component={AdminTabs} />
+      <AdminStack.Screen name="trainees"         component={TraineeListScreen} />
+      <AdminStack.Screen name="subAdmins"        component={SubAdminListScreen} />
+      <AdminStack.Screen name="traineeRotation"  component={TraineeRotationScreen} />
+      <AdminStack.Screen name="allRequests"      component={AllRequestsScreen} />
+      <AdminStack.Screen name="incomingTrainees" component={IncomingTraineesScreen} />
       <AdminStack.Screen
         name="kiosk"
         options={{ presentation: 'fullScreenModal' }}
@@ -160,6 +172,7 @@ function AzubiTabs() {
       <AzubiTab.Screen name="shiftPlan"    component={withTopBar(ShiftPlanScreen)} />
       <AzubiTab.Screen name="rotation"     component={withTopBar(RotationPlanScreen)} />
       <AzubiTab.Screen name="availability" component={withTopBar(AvailabilityScreen)} />
+      <AzubiTab.Screen name="myRequests"   component={withTopBar(MyRequestsScreen)} />
       <AzubiTab.Screen name="profile"      component={withTopBar(AccountScreen)} />
     </AzubiTab.Navigator>
   );
@@ -169,8 +182,10 @@ function AzubiTabs() {
 function AzubiNavigator() {
   return (
     <AzubiStack.Navigator screenOptions={{ headerShown: false }}>
-      <AzubiStack.Screen name="azubiTabs"   component={AzubiTabs} />
-      <AzubiStack.Screen name="workingTime" component={WorkingTimeScreen} />
+      <AzubiStack.Screen name="azubiTabs"            component={AzubiTabs} />
+      <AzubiStack.Screen name="workingTime"          component={WorkingTimeScreen} />
+      <AzubiStack.Screen name="facilities"           component={FacilitiesListScreen} />
+      <AzubiStack.Screen name="placementRequestForm" component={PlacementRequestFormScreen} />
     </AzubiStack.Navigator>
   );
 }

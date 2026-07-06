@@ -16,11 +16,12 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
   const { t } = useLang();
 
   const NAV_ITEMS = [
-    { name: 'home',         label: 'Dashboard',          icon: '📊' },
-    { name: 'shiftPlan',   label: t.tabs.shiftPlan,     icon: '📅' },
-    { name: 'rotation',    label: t.rotation.title,     icon: '🔄' },
-    { name: 'availability',label: t.tabs.availability,  icon: '✋' },
-    { name: 'profile',     label: t.tabs.profile,       icon: '👤' },
+    { name: 'home',         label: 'Dashboard',                       icon: '📊' },
+    { name: 'shiftPlan',   label: t.tabs.shiftPlan,                  icon: '📅' },
+    { name: 'rotation',    label: t.rotation.title,                  icon: '🔄' },
+    { name: 'availability',label: t.tabs.availability,               icon: '✋' },
+    { name: 'myRequests',  label: t.placementRequest.myRequests,     icon: '📋' },
+    { name: 'profile',     label: t.tabs.profile,                    icon: '👤' },
   ];
   const [open, setOpen] = useState(false);
   const slideX = useRef(new Animated.Value(-300)).current;

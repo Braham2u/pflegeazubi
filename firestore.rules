@@ -1,9 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper: fetch the calling user's role from the users collection
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function userFacilityId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.primaryFacilityId;
+    }
+
+    // ── Default: any signed-in user (covers kiosk anonymous sessions too) ──
     match /{document=**} {
-      // Any signed-in user (including anonymous kiosk sessions) can read and write.
       allow read, write: if request.auth != null;
     }
+
+    // ── Facilities: all authenticated users can read; only admin can write ──
+    match /facilities/{facilityId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && userRole() == 'admin';
+    }
+
+    // ── Placement Requests ──
+    match /placementRequests/{requestId} {
+      // Trainee: read own requests; create requests for themselves
+      allow read: if request.auth != null && (
+        resource.data.traineeId == request.auth.uid ||
+        userRole() == 'admin' ||
+        (userRole() == 'subAdmin' && resource.data.facilityId == userFacilityId())
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.traineeId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      // Only main admin can approve/reject
+      allow update: if request.auth != null && userRole() == 'admin';
+      allow delete: if false;
+    }
+
   }
 }

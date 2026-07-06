@@ -60,6 +60,7 @@ export default function DashboardScreen() {
     { label: 'Dienstplan veröffentlichen',                                   icon: '📋', screen: 'shiftPublisher' },
     { label: `Wünsche prüfen${pendingWishes ? ` (${pendingWishes})` : ''}`, icon: '✋', screen: 'adminWishes' },
     { label: `Korrekturen${pendingCorr ? ` (${pendingCorr})` : ''}`,        icon: '⚠',  screen: 'adminAttendance' },
+    { label: isMainAdmin ? 'Einsatzanfragen' : 'Kommende Azubis', icon: '📝', screen: isMainAdmin ? 'allRequests' : 'incomingTrainees' },
     ...(isMainAdmin ? [
       { label: 'Neuen Azubi einladen',    icon: '➕', screen: 'trainees' },
       { label: 'Sub-Admins verwalten',    icon: '🔑', screen: 'subAdmins' },
