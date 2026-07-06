@@ -138,19 +138,29 @@ function AdminNavigator() {
   );
 }
 
+// Wraps any screen so it sits below the 52 px permanent top bar
+function withTopBar<T extends object>(Screen: React.ComponentType<T>) {
+  return function Wrapped(props: T) {
+    return (
+      <View style={{ flex: 1, marginTop: 52 }}>
+        <Screen {...props} />
+      </View>
+    );
+  };
+}
+
 // ── Azubi tabs — sidebar replaces the bottom tab bar ─────────────────────────
 function AzubiTabs() {
   return (
     <AzubiTab.Navigator
       tabBar={(props) => <AzubiSidebar {...props} />}
-      sceneContainerStyle={{ marginTop: 52 }}
       screenOptions={{ headerShown: false }}
     >
-      <AzubiTab.Screen name="home"         component={HomeScreen} />
-      <AzubiTab.Screen name="shiftPlan"    component={ShiftPlanScreen} />
-      <AzubiTab.Screen name="rotation"     component={RotationPlanScreen} />
-      <AzubiTab.Screen name="availability" component={AvailabilityScreen} />
-      <AzubiTab.Screen name="profile"      component={AccountScreen} />
+      <AzubiTab.Screen name="home"         component={withTopBar(HomeScreen)} />
+      <AzubiTab.Screen name="shiftPlan"    component={withTopBar(ShiftPlanScreen)} />
+      <AzubiTab.Screen name="rotation"     component={withTopBar(RotationPlanScreen)} />
+      <AzubiTab.Screen name="availability" component={withTopBar(AvailabilityScreen)} />
+      <AzubiTab.Screen name="profile"      component={withTopBar(AccountScreen)} />
     </AzubiTab.Navigator>
   );
 }
