@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BRAND } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
-import { getMyRequests } from '../services/placementRequests';
+import { getMyRequests, deleteRequest } from '../services/placementRequests';
 import { PlacementRequest, PlacementRequestStatus } from '../types';
 
 const STATUS_LABELS: Record<PlacementRequestStatus, { de: string; en: string }> = {
@@ -42,6 +42,28 @@ export default function MyRequestsScreen() {
   }, [userProfile?.id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  function handleDelete(id: string) {
+    Alert.alert(
+      lang === 'de' ? 'Anfrage löschen?' : 'Delete request?',
+      lang === 'de'
+        ? 'Die Anfrage wird unwiderruflich gelöscht.'
+        : 'This request will be permanently deleted.',
+      [
+        { text: lang === 'de' ? 'Abbrechen' : 'Cancel', style: 'cancel' },
+        {
+          text: lang === 'de' ? 'Löschen' : 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteRequest(id);
+              load();
+            } catch { /* silent */ }
+          },
+        },
+      ],
+    );
+  }
 
   function displayMonth(yyyyMm: string): string {
     const [year, month] = yyyyMm.split('-');
@@ -82,9 +104,14 @@ export default function MyRequestsScreen() {
                     <Text style={[s.badgeText, { color: col.color }]}>{label}</Text>
                   </View>
                 </View>
-                <Text style={s.period}>
-                  {displayMonth(r.startMonth)} – {displayMonth(r.endMonth)}
-                </Text>
+                <View style={s.cardBottom}>
+                  <Text style={s.period}>
+                    {displayMonth(r.startMonth)} – {displayMonth(r.endMonth)}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleDelete(r.id)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={s.deleteBtn}>{lang === 'de' ? 'Löschen' : 'Delete'}</Text>
+                  </TouchableOpacity>
+                </View>
                 {r.adminResponse ? (
                   <Text style={s.adminResponse}>💬 {r.adminResponse}</Text>
                 ) : null}
@@ -120,6 +147,8 @@ const s = StyleSheet.create({
   facilityName: { flex: 1, fontSize: 15, fontWeight: '700', color: BRAND.textPrimary, marginRight: 8 },
   badge:        { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText:    { fontSize: 12, fontWeight: '700' },
+  cardBottom:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   period:       { fontSize: 13, color: BRAND.textSecondary },
+  deleteBtn:    { fontSize: 12, color: '#DC2626', fontWeight: '600' },
   adminResponse:{ fontSize: 12, color: BRAND.textSecondary, marginTop: 8, lineHeight: 16, fontStyle: 'italic' },
 });

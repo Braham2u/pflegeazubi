@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Facility, PlacementRequest } from '../types';
 
@@ -51,6 +51,11 @@ export async function getRequestsForFacility(facilityId: string): Promise<Placem
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() } as PlacementRequest))
     .sort((a, b) => a.startMonth.localeCompare(b.startMonth));
+}
+
+export async function deleteRequest(requestId: string): Promise<void> {
+  if (!db) throw new Error('Firebase nicht verfügbar');
+  await deleteDoc(doc(db, 'placementRequests', requestId));
 }
 
 export async function respondToRequest(

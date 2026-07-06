@@ -183,9 +183,9 @@ function AzubiNavigator() {
   return (
     <AzubiStack.Navigator screenOptions={{ headerShown: false }}>
       <AzubiStack.Screen name="azubiTabs"            component={AzubiTabs} />
-      <AzubiStack.Screen name="workingTime"          component={WorkingTimeScreen} />
-      <AzubiStack.Screen name="facilities"           component={FacilitiesListScreen} />
-      <AzubiStack.Screen name="placementRequestForm" component={PlacementRequestFormScreen} />
+      <AzubiStack.Screen name="workingTime"          component={withTopBar(WorkingTimeScreen)} />
+      <AzubiStack.Screen name="facilities"           component={withTopBar(FacilitiesListScreen)} />
+      <AzubiStack.Screen name="placementRequestForm" component={withTopBar(PlacementRequestFormScreen)} />
     </AzubiStack.Navigator>
   );
 }
