@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { getRotationsForAzubi, rotationStatus } from '../services/rotations';
 import { Rotation, FacilityType } from '../types';
 
@@ -17,32 +18,13 @@ const TYPE_ICONS: Record<FacilityType, string> = {
   other:      '📍',
 };
 
-const TYPE_LABELS: Record<FacilityType, string> = {
-  hospital:   'Krankenhaus',
-  careHome:   'Pflegeheim',
-  ambulatory: 'Ambulanter Dienst',
-  school:     'Berufsschule',
-  other:      'Sonstiges',
+const TYPE_LABELS: Record<FacilityType, { de: string; en: string }> = {
+  hospital:   { de: 'Krankenhaus',       en: 'Hospital' },
+  careHome:   { de: 'Pflegeheim',        en: 'Care home' },
+  ambulatory: { de: 'Ambulanter Dienst', en: 'Outpatient care' },
+  school:     { de: 'Berufsschule',      en: 'Vocational school' },
+  other:      { de: 'Sonstiges',         en: 'Other' },
 };
-
-const STATUS_CONFIG = {
-  completed: { label: 'Abgeschlossen', color: '#6B7280', bg: '#F3F4F6', dot: '#9CA3AF' },
-  current:   { label: 'Aktuell',       color: '#065F46', bg: '#D1FAE5', dot: '#10B981' },
-  upcoming:  { label: 'Bevorstehend',  color: '#1D4ED8', bg: '#DBEAFE', dot: '#3B82F6' },
-};
-
-function fmtDate(iso: string): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  });
-}
-
-function durationLabel(startISO: string, endISO: string): string {
-  const start = new Date(startISO + 'T00:00:00');
-  const end   = new Date(endISO   + 'T00:00:00');
-  const months = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
-  return months <= 1 ? '1 Monat' : `${months} Monate`;
-}
 
 function progressPercent(startISO: string, endISO: string): number {
   const now   = Date.now();
@@ -55,15 +37,39 @@ function progressPercent(startISO: string, endISO: string): number {
 
 export default function RotationPlanScreen() {
   const { userProfile } = useAuth();
+  const { t, lang }     = useLang();
   const [rotations, setRotations] = useState<Rotation[]>([]);
   const [loading, setLoading]     = useState(true);
+
+  const locale = lang === 'de' ? 'de-DE' : 'en-GB';
+
+  function fmtDate(iso: string) {
+    return new Date(iso + 'T00:00:00').toLocaleDateString(locale, {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+  }
+
+  function durationLabel(startISO: string, endISO: string) {
+    const months = Math.round(
+      (new Date(endISO + 'T00:00:00').getTime() - new Date(startISO + 'T00:00:00').getTime())
+      / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    return months <= 1
+      ? `1 ${t.rotation.month}`
+      : `${months} ${t.rotation.months}`;
+  }
+
+  const statusConfig = {
+    completed: { label: t.rotation.completed, color: '#6B7280', bg: '#F3F4F6', dot: '#9CA3AF' },
+    current:   { label: t.rotation.current,   color: '#065F46', bg: '#D1FAE5', dot: '#10B981' },
+    upcoming:  { label: t.rotation.upcoming,  color: '#1D4ED8', bg: '#DBEAFE', dot: '#3B82F6' },
+  };
 
   const load = useCallback(async () => {
     if (!userProfile?.id) return;
     setLoading(true);
     try {
-      const data = await getRotationsForAzubi(userProfile.id);
-      setRotations(data);
+      setRotations(await getRotationsForAzubi(userProfile.id));
     } catch {
       setRotations([]);
     } finally {
@@ -74,106 +80,81 @@ export default function RotationPlanScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const completed = rotations.filter(r => rotationStatus(r) === 'completed');
-  const current   = rotations.filter(r => rotationStatus(r) === 'current');
   const upcoming  = rotations.filter(r => rotationStatus(r) === 'upcoming');
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Rotationsplan</Text>
-        <Text style={styles.subtitle}>Dein 3-jähriger Ausbildungsweg</Text>
+        <Text style={styles.title}>{t.rotation.title}</Text>
+        <Text style={styles.subtitle}>{t.rotation.subtitle}</Text>
 
         {loading ? (
           <ActivityIndicator color={BRAND.primary} style={{ marginTop: 40 }} />
         ) : rotations.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🔄</Text>
-            <Text style={styles.emptyTitle}>Noch kein Rotationsplan</Text>
-            <Text style={styles.emptyText}>
-              Dein Ausbildungsleiter legt deinen 3-jährigen Rotationsplan an.
-              Du siehst ihn dann hier.
-            </Text>
+            <Text style={styles.emptyTitle}>{t.rotation.noTitle}</Text>
+            <Text style={styles.emptyText}>{t.rotation.noText}</Text>
           </View>
         ) : (
           <>
-            {/* Stats row */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>{rotations.length}</Text>
-                <Text style={styles.statLabel}>Einsätze</Text>
+                <Text style={styles.statLabel}>{t.rotation.placements}</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={[styles.statValue, { color: '#065F46' }]}>{completed.length}</Text>
-                <Text style={styles.statLabel}>Abgeschlossen</Text>
+                <Text style={styles.statLabel}>{t.rotation.completed}</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={[styles.statValue, { color: '#1D4ED8' }]}>{upcoming.length}</Text>
-                <Text style={styles.statLabel}>Bevorstehend</Text>
+                <Text style={styles.statLabel}>{t.rotation.upcoming}</Text>
               </View>
             </View>
 
-            {/* Timeline */}
             <View style={styles.timeline}>
               {rotations.map((r, index) => {
                 const status = rotationStatus(r);
-                const cfg    = STATUS_CONFIG[status];
+                const cfg    = statusConfig[status];
                 const pct    = status === 'current' ? progressPercent(r.startDate, r.endDate) : null;
                 const isLast = index === rotations.length - 1;
 
                 return (
                   <View key={r.id} style={styles.timelineItem}>
-                    {/* Connector line */}
                     <View style={styles.timelineLeft}>
                       <View style={[styles.timelineDot, { backgroundColor: cfg.dot }]} />
                       {!isLast && <View style={styles.timelineLine} />}
                     </View>
-
-                    {/* Card */}
-                    <View style={[
-                      styles.rotationCard,
-                      status === 'current' && styles.rotationCardCurrent,
-                    ]}>
-                      {/* Status badge */}
+                    <View style={[styles.rotationCard, status === 'current' && styles.rotationCardCurrent]}>
                       <View style={styles.cardTopRow}>
                         <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
                           <Text style={[styles.statusBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
                         </View>
                         <Text style={styles.durationLabel}>{durationLabel(r.startDate, r.endDate)}</Text>
                       </View>
-
-                      {/* Facility */}
                       <View style={styles.facilityRow}>
                         <Text style={styles.facilityIcon}>{TYPE_ICONS[r.facilityType]}</Text>
                         <View style={styles.facilityInfo}>
                           <Text style={styles.facilityName}>{r.facilityName}</Text>
-                          {r.unitName ? (
-                            <Text style={styles.unitName}>{r.unitName}</Text>
-                          ) : null}
-                          <Text style={styles.facilityType}>{TYPE_LABELS[r.facilityType]}</Text>
+                          {r.unitName ? <Text style={styles.unitName}>{r.unitName}</Text> : null}
+                          <Text style={styles.facilityType}>{TYPE_LABELS[r.facilityType][lang]}</Text>
                         </View>
                       </View>
-
-                      {/* Date range */}
                       <View style={styles.dateRow}>
-                        <Text style={styles.dateText}>
-                          {fmtDate(r.startDate)} – {fmtDate(r.endDate)}
-                        </Text>
+                        <Text style={styles.dateText}>{fmtDate(r.startDate)} – {fmtDate(r.endDate)}</Text>
                       </View>
-
-                      {/* Progress bar for current rotation */}
                       {pct !== null && (
                         <View style={styles.progressWrap}>
                           <View style={styles.progressTrack}>
                             <View style={[styles.progressFill, { width: `${pct}%` as any }]} />
                           </View>
-                          <Text style={styles.progressLabel}>{pct}% abgeschlossen</Text>
+                          <Text style={styles.progressLabel}>
+                            {t.rotation.progressLabel.replace('{n}', String(pct))}
+                          </Text>
                         </View>
                       )}
-
-                      {/* Notes */}
-                      {r.notes ? (
-                        <Text style={styles.notes}>📝 {r.notes}</Text>
-                      ) : null}
+                      {r.notes ? <Text style={styles.notes}>📝 {r.notes}</Text> : null}
                     </View>
                   </View>
                 );

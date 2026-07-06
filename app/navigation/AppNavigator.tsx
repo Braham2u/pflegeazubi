@@ -143,6 +143,7 @@ function AzubiTabs() {
   return (
     <AzubiTab.Navigator
       tabBar={(props) => <AzubiSidebar {...props} />}
+      sceneContainerStyle={{ marginTop: 52 }}
       screenOptions={{ headerShown: false }}
     >
       <AzubiTab.Screen name="home"         component={HomeScreen} />

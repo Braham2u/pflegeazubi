@@ -6,20 +6,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BRAND } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 
 // position:'fixed' overlays the full viewport on web; 'absolute' fallback for native
 const FIXED = { position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any };
 
-const NAV_ITEMS = [
-  { name: 'home',         label: 'Dashboard',  icon: '📊' },
-  { name: 'shiftPlan',   label: 'Dienstplan', icon: '📅' },
-  { name: 'rotation',    label: 'Rotation',   icon: '🔄' },
-  { name: 'availability',label: 'Wunschbuch', icon: '✋' },
-  { name: 'profile',     label: 'Profil',     icon: '👤' },
-];
-
 export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
   const { userProfile } = useAuth();
+  const { t } = useLang();
+
+  const NAV_ITEMS = [
+    { name: 'home',         label: 'Dashboard',          icon: '📊' },
+    { name: 'shiftPlan',   label: t.tabs.shiftPlan,     icon: '📅' },
+    { name: 'rotation',    label: t.rotation.title,     icon: '🔄' },
+    { name: 'availability',label: t.tabs.availability,  icon: '✋' },
+    { name: 'profile',     label: t.tabs.profile,       icon: '👤' },
+  ];
   const [open, setOpen] = useState(false);
   const slideX = useRef(new Animated.Value(-300)).current;
   const fadeA  = useRef(new Animated.Value(0)).current;
@@ -47,15 +49,18 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
     closeSidebar();
   }
 
+  const currentLabel = NAV_ITEMS.find(i => i.name === activeRoute)?.label ?? 'Dashboard';
+
   return (
     <>
-      {/* ── Hamburger toggle — floats top-right ── */}
-      <View style={[s.hamburgerWrap, FIXED]}>
-        <TouchableOpacity style={s.hamburger} onPress={openSidebar} activeOpacity={0.8}>
+      {/* ── Permanent top bar (always visible) ── */}
+      <View style={[s.topBar, FIXED]}>
+        <TouchableOpacity style={s.hamburgerBtn} onPress={openSidebar} activeOpacity={0.8}>
           <View style={s.bar} />
           <View style={[s.bar, { width: 16 }]} />
           <View style={s.bar} />
         </TouchableOpacity>
+        <Text style={s.topBarTitle}>{currentLabel}</Text>
       </View>
 
       {/* ── Backdrop ── */}
@@ -77,7 +82,7 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
               </View>
               <View style={s.headInfo}>
                 <Text style={s.headName} numberOfLines={1}>{userProfile?.name ?? ''}</Text>
-                <Text style={s.headRole}>Auszubildende/r</Text>
+                <Text style={s.headRole}>{t.account.azubi}</Text>
               </View>
               <TouchableOpacity onPress={closeSidebar} style={s.closeBtn} activeOpacity={0.7}>
                 <Text style={s.closeBtnText}>✕</Text>
@@ -117,17 +122,19 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
 }
 
 const s = StyleSheet.create({
-  hamburgerWrap: {
-    top: 56, right: 16, zIndex: 900,
-  },
-  hamburger: {
-    width: 42, height: 42, borderRadius: 12,
+  topBar: {
+    top: 0, left: 0, right: 0, height: 52, zIndex: 900,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16,
     backgroundColor: BRAND.surface,
-    borderWidth: 1, borderColor: BRAND.border,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.08,
-    shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 4,
+    borderBottomWidth: 1, borderBottomColor: BRAND.border,
+    shadowColor: '#000', shadowOpacity: 0.05,
+    shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
+  hamburgerBtn: {
+    width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  topBarTitle: { fontSize: 17, fontWeight: '700', color: BRAND.textPrimary, flex: 1 },
   bar: { width: 20, height: 2, backgroundColor: BRAND.textPrimary, borderRadius: 1, marginVertical: 2 },
 
   backdrop: {
