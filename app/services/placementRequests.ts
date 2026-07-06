@@ -1,21 +1,24 @@
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase';
-import { Facility, PlacementRequest } from '../types';
+import { Facility, FacilityType, PlacementRequest } from '../types';
+import { LOCATIONS } from '../data/sharedPlanStore';
 
-const DEMO_FACILITIES: Facility[] = [
-  { id: 'demo_fac_1', name: 'Caritas St. Konrad',           type: 'careHome',   address: 'Konradstraße 12',    city: 'München' },
-  { id: 'demo_fac_2', name: 'Klinikum Großhadern',          type: 'hospital',   address: 'Marchioninistr. 15', city: 'München' },
-  { id: 'demo_fac_3', name: 'Ambulanter Pflegedienst Nord', type: 'ambulatory', address: 'Nordring 8',         city: 'München' },
-  { id: 'demo_fac_4', name: 'Berufsfachschule für Pflege',  type: 'school',     address: 'Schulstraße 3',      city: 'München' },
-  { id: 'demo_fac_5', name: 'Seniorenheim Am Park',         type: 'careHome',   address: 'Parkweg 21',         city: 'Augsburg' },
-  { id: 'demo_fac_6', name: 'AWO Pflegeheim Westend',       type: 'careHome',   address: 'Westendstraße 44',   city: 'München' },
-];
+function locationsAsFacilities(): Facility[] {
+  return LOCATIONS.map(loc => ({
+    id:   loc.id,
+    name: `${loc.facility} · ${loc.unit}`,
+    type: (loc.isSchool ? 'school'
+         : loc.icon === '🏥' ? 'hospital'
+         : 'careHome') as FacilityType,
+  }));
+}
 
 export async function getAllFacilities(): Promise<Facility[]> {
-  if (!db) return DEMO_FACILITIES;
+  // Try a dedicated Firestore collection first; fall back to the canonical LOCATIONS list.
+  if (!db) return locationsAsFacilities();
   const snap = await getDocs(collection(db, 'facilities'));
-  if (snap.empty) return DEMO_FACILITIES;
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Facility));
+  if (!snap.empty) return snap.docs.map(d => ({ id: d.id, ...d.data() } as Facility));
+  return locationsAsFacilities();
 }
 
 export async function getMyRequests(traineeId: string): Promise<PlacementRequest[]> {
