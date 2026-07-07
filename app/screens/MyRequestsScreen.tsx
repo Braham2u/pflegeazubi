@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -26,8 +26,10 @@ export default function MyRequestsScreen() {
   const navigation      = useNavigation<any>();
   const { userProfile } = useAuth();
   const { t, lang }     = useLang();
-  const [requests, setRequests] = useState<PlacementRequest[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [requests,       setRequests]       = useState<PlacementRequest[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting,        setDeleting]        = useState(false);
 
   const load = useCallback(async () => {
     if (!userProfile?.id) return;
@@ -43,26 +45,17 @@ export default function MyRequestsScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  function handleDelete(id: string) {
-    Alert.alert(
-      lang === 'de' ? 'Anfrage löschen?' : 'Delete request?',
-      lang === 'de'
-        ? 'Die Anfrage wird unwiderruflich gelöscht.'
-        : 'This request will be permanently deleted.',
-      [
-        { text: lang === 'de' ? 'Abbrechen' : 'Cancel', style: 'cancel' },
-        {
-          text: lang === 'de' ? 'Löschen' : 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteRequest(id);
-              load();
-            } catch { /* silent */ }
-          },
-        },
-      ],
-    );
+  async function confirmDelete(id: string) {
+    setDeleting(true);
+    try {
+      await deleteRequest(id);
+      setConfirmDeleteId(null);
+      load();
+    } catch {
+      setConfirmDeleteId(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function displayMonth(yyyyMm: string): string {
@@ -108,9 +101,34 @@ export default function MyRequestsScreen() {
                   <Text style={s.period}>
                     {displayMonth(r.startMonth)} – {displayMonth(r.endMonth)}
                   </Text>
-                  <TouchableOpacity onPress={() => handleDelete(r.id)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Text style={s.deleteBtn}>{lang === 'de' ? 'Löschen' : 'Delete'}</Text>
-                  </TouchableOpacity>
+                  {confirmDeleteId === r.id ? (
+                    <View style={s.confirmRow}>
+                      <TouchableOpacity
+                        onPress={() => setConfirmDeleteId(null)}
+                        style={s.cancelDelBtn}
+                        activeOpacity={0.7}
+                        disabled={deleting}
+                      >
+                        <Text style={s.cancelDelText}>{lang === 'de' ? 'Nein' : 'No'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => confirmDelete(r.id)}
+                        style={s.confirmDelBtn}
+                        activeOpacity={0.7}
+                        disabled={deleting}
+                      >
+                        <Text style={s.confirmDelText}>{deleting ? '…' : (lang === 'de' ? 'Ja, löschen' : 'Yes, delete')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setConfirmDeleteId(r.id)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={s.deleteBtn}>{lang === 'de' ? 'Löschen' : 'Delete'}</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 {r.adminResponse ? (
                   <Text style={s.adminResponse}>💬 {r.adminResponse}</Text>
@@ -147,8 +165,13 @@ const s = StyleSheet.create({
   facilityName: { flex: 1, fontSize: 15, fontWeight: '700', color: BRAND.textPrimary, marginRight: 8 },
   badge:        { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText:    { fontSize: 12, fontWeight: '700' },
-  cardBottom:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  period:       { fontSize: 13, color: BRAND.textSecondary },
-  deleteBtn:    { fontSize: 12, color: '#DC2626', fontWeight: '600' },
+  cardBottom:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  period:        { fontSize: 13, color: BRAND.textSecondary, flex: 1, marginRight: 8 },
+  deleteBtn:     { fontSize: 12, color: '#DC2626', fontWeight: '600' },
+  confirmRow:    { flexDirection: 'row', columnGap: 8, alignItems: 'center' },
+  cancelDelBtn:  { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: BRAND.border },
+  cancelDelText: { fontSize: 12, fontWeight: '600', color: BRAND.textSecondary },
+  confirmDelBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#FEE2E2' },
+  confirmDelText:{ fontSize: 12, fontWeight: '700', color: '#991B1B' },
   adminResponse:{ fontSize: 12, color: BRAND.textSecondary, marginTop: 8, lineHeight: 16, fontStyle: 'italic' },
 });
