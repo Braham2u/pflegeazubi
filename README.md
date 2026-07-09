@@ -132,21 +132,7 @@ npx expo export -p web && firebase deploy --only hosting
 
 ---
 
-## Evaluation Dimensions
 
-| Dimension | How this project addresses it |
-|---|---|
-| **Performance** | Expo web bundle is lean; Firestore queries fetch only the current user's data |
-| **Dev Time** | Full scaffold, all screens, auth, and time-clock system delivered within the academic semester timeline |
-| **Cost** | Firebase Spark (free tier) covers the entire MVP including hosting; no backend server required |
-| **Accuracy** | Domain logic (shift types, ArbZG break rules, DSGVO role isolation) sourced from industry requirements |
-| **Usability** | Color-coded shift types, German-first UI with English toggle, invite-only onboarding, kiosk PIN terminal |
-| **Security** | Invite-based onboarding prevents open registration; role stored server-side in Firestore; kiosk isolated at separate URL; `.env` gitignored |
-| **Scalability** | Firestore scales horizontally; Träger → Einrichtung → Bereich hierarchy supports single homes through large chains (Caritas, BRK, AWO) |
-| **Extensibility** | Clean separation of services, screens, types, and context; i18n system makes adding further languages straightforward |
-| **Traceability** | Git history shows incremental feature delivery from initial scaffold through full admin panel |
-
----
 
 ## Team
 
@@ -162,4 +148,4 @@ npx expo export -p web && firebase deploy --only hosting
 
 ## License
 
-Academic project — TH Deggendorf, SS 2026. Not licensed for commercial use.
+Academic project — TH Deggendorf, SS 2026. 
