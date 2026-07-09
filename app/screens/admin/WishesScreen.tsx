@@ -39,7 +39,6 @@ export default function WishesScreen() {
       await updateWishStatus(id, status, userProfile.name);
       setWishes(ws => ws.map(w => w.id === id ? { ...w, status } : w));
     } catch {
-      // silent — wish stays pending
     } finally {
       setUpdating(null);
     }

@@ -148,7 +148,6 @@ export default function TraineeListScreen() {
         )}
       </ScrollView>
 
-      {/* ── Detail sheet ── */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => { setSelected(null); setNewPin(null); }}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => { setSelected(null); setNewPin(null); }}>
           <View style={styles.sheet}>
@@ -179,7 +178,6 @@ export default function TraineeListScreen() {
                   </View>
                 ))}
 
-                {/* PIN section */}
                 <View style={[styles.detailRow, { flexDirection: 'column', alignItems: 'flex-start', rowGap: 8 }]}>
                   <Text style={styles.detailLabel}>Stempel-PIN</Text>
                   {newPin ? (
@@ -204,7 +202,6 @@ export default function TraineeListScreen() {
                   )}
                 </View>
 
-                {/* Rotation plan */}
                 <TouchableOpacity
                   style={styles.rotationBtn}
                   onPress={() => {
@@ -222,7 +219,6 @@ export default function TraineeListScreen() {
                   <Text style={styles.rotationBtnArrow}>›</Text>
                 </TouchableOpacity>
 
-                {/* Delete — main admin only */}
                 {isMainAdmin && (
                   <TouchableOpacity
                     style={styles.deleteBtn}
@@ -246,7 +242,6 @@ export default function TraineeListScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* ── Invite modal ── */}
       <Modal visible={showInvite} transparent animationType="slide" onRequestClose={() => setShowInvite(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowInvite(false)}>
@@ -259,7 +254,6 @@ export default function TraineeListScreen() {
               </View>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 {inviteResult ? (
-                  /* ── Success state ── */
                   <>
                     <View style={styles.successIcon}><Text style={{ fontSize: 36 }}>✓</Text></View>
                     <Text style={[styles.sheetName, { textAlign: 'center' }]}>Konto erstellt!</Text>
@@ -288,7 +282,6 @@ export default function TraineeListScreen() {
                     </TouchableOpacity>
                   </>
                 ) : (
-                  /* ── Form state ── */
                   <>
                     <Text style={styles.sheetName}>Neuen Azubi einladen</Text>
                     <Text style={styles.inviteSubtitle}>

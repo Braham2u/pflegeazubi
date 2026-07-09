@@ -596,11 +596,9 @@ const styles = StyleSheet.create({
   miniCellAbbr: { fontSize: 9, fontWeight: '800' },
   miniCellTime: { fontSize: 7, fontWeight: '600', opacity: 0.8 },
 
-  // Publish
   publishBtn: { backgroundColor: BRAND.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   publishBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  // Modal
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   sheetScroll: { maxHeight: '85%' },
   sheet: { backgroundColor: BRAND.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 48 },
@@ -608,7 +606,6 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 16, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 4 },
   stepLabel: { fontSize: 11, fontWeight: '600', color: BRAND.textSecondary, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  // Shift type options (step 1)
   optionRow: { borderRadius: 10, paddingVertical: 13, paddingHorizontal: 16, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   optionRowSelected: { borderWidth: 2, borderColor: 'rgba(0,0,0,0.15)' },
   optionLabel: { fontSize: 15, fontWeight: '700' },
@@ -616,11 +613,9 @@ const styles = StyleSheet.create({
   optionTime: { fontSize: 13, fontWeight: '600', opacity: 0.75 },
   optionCheck: { fontSize: 14, fontWeight: '700' },
 
-  // Back button
   backBtn: { marginBottom: 16 },
   backBtnText: { fontSize: 14, fontWeight: '600', color: ADMIN_PURPLE },
 
-  // Time picker (step 2)
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   timeLabel: { fontSize: 15, fontWeight: '600', color: BRAND.textPrimary, width: 60 },
   timePicker: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.background, borderRadius: 12, borderWidth: 1.5, borderColor: BRAND.border, overflow: 'hidden' },
@@ -631,7 +626,6 @@ const styles = StyleSheet.create({
   confirmTimeBtn: { backgroundColor: ADMIN_PURPLE, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   confirmTimeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  // Location options (step 2)
   locationOption: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1.5,
     borderColor: BRAND.border, padding: 14, marginBottom: 10,
@@ -644,7 +638,6 @@ const styles = StyleSheet.create({
   locationOptionUnit: { fontSize: 12, color: BRAND.textSecondary, marginTop: 2 },
   locationOptionCheck: { fontSize: 16, color: ADMIN_PURPLE, fontWeight: '700' },
 
-  // Toast
   toast: { position: 'absolute', bottom: 40, left: 24, right: 24, backgroundColor: '#065F46', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   toastText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

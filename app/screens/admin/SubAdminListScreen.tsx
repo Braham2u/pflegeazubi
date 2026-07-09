@@ -55,7 +55,6 @@ export default function SubAdminListScreen() {
       list.sort((a, b) => a.name.localeCompare(b.name));
       setAdmins(list);
     } catch {
-      // silent
     } finally {
       setLoading(false);
     }
