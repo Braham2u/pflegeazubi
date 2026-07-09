@@ -8,7 +8,6 @@ import { BRAND } from '../constants/colors';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 
-// position:'fixed' overlays the full viewport on web; 'absolute' fallback for native
 const FIXED = { position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any };
 
 export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
@@ -54,7 +53,6 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <>
-      {/* ── Permanent top bar (always visible) ── */}
       <View style={[s.topBar, FIXED]}>
         <TouchableOpacity style={s.hamburgerBtn} onPress={openSidebar} activeOpacity={0.8}>
           <View style={s.bar} />
@@ -64,19 +62,15 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
         <Text style={s.topBarTitle}>{currentLabel}</Text>
       </View>
 
-      {/* ── Backdrop ── */}
       {open && (
         <Animated.View style={[s.backdrop, FIXED, { opacity: fadeA }]}>
           <TouchableOpacity style={{ flex: 1 }} onPress={closeSidebar} activeOpacity={1} />
         </Animated.View>
       )}
 
-      {/* ── Sidebar panel ── */}
       {open && (
         <Animated.View style={[s.panel, FIXED, { transform: [{ translateX: slideX }] }]}>
           <SafeAreaView style={{ flex: 1 }}>
-
-            {/* User header */}
             <View style={s.head}>
               <View style={s.avatar}>
                 <Text style={s.avatarText}>{initial}</Text>
@@ -90,7 +84,6 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
               </TouchableOpacity>
             </View>
 
-            {/* Navigation items */}
             <View style={s.navList}>
               {NAV_ITEMS.map(item => {
                 const isActive = activeRoute === item.name;
@@ -109,7 +102,6 @@ export default function AzubiSidebar({ state, navigation }: BottomTabBarProps) {
               })}
             </View>
 
-            {/* Footer */}
             <View style={s.footer}>
               <Text style={s.footerBrand}>PflegeAzubi</Text>
               <Text style={s.footerSub}>Dein Ausbildungsbegleiter</Text>

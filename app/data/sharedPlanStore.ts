@@ -1,12 +1,4 @@
-/**
- * sharedPlanStore — in-memory bridge between the admin ShiftPublisher and the Azubi ShiftPlan.
- * No Firebase needed: the admin writes here on "Veröffentlichen", the Azubi reads here on load.
- * Lives at module scope so it survives tab navigation within the same session.
- */
-
 import { ShiftType, Shift } from '../types';
-
-// ─── Shared location data ────────────────────────────────────────────────────
 
 export interface CareLocation {
   id: string;
@@ -24,20 +16,14 @@ export const LOCATIONS: CareLocation[] = [
   { id: 'loc4', facility: 'Berufsschule Pfarrkirchen', unit: 'Raum 12',       icon: '🎓', short: 'Berufsschule', isSchool: true },
 ];
 
-// ─── Shared Azubi roster — IDs match the demo account IDs in demoAccounts.ts ─
-
 export const ADMIN_AZUBIS = [
   { id: 'demo-a1', name: 'Abraham T. Borbor Jr.' },
   { id: 'demo-a2', name: 'Fatima Al-Hassan' },
   { id: 'demo-a3', name: 'Jana Müller' },
 ];
 
-// ─── Plan types ──────────────────────────────────────────────────────────────
-
 export type DayAssignment = { shiftType: ShiftType; locationId: string; startTime?: string; endTime?: string };
-export type AzubiPlan = Record<string, DayAssignment>; // ISO-date → assignment
-
-// ─── Shift time defaults ─────────────────────────────────────────────────────
+export type AzubiPlan = Record<string, DayAssignment>;
 
 const START: Record<ShiftType, string> = {
   early: '06:00', late: '14:00', night: '22:00',
@@ -51,19 +37,13 @@ const BREAK: Record<ShiftType, number> = {
   early: 30, late: 30, night: 45, school: 45, free: 0, external: 30,
 };
 
-// ─── The store ───────────────────────────────────────────────────────────────
-
-// azubiId → (ISO-date → DayAssignment)
 export const sharedPlanStore: Record<string, AzubiPlan> = {};
 
-/** Called by the admin when pressing "Dienstplan veröffentlichen". */
 export function publishPlan(plan: Record<string, AzubiPlan>): void {
   Object.keys(plan).forEach(azubiId => {
     sharedPlanStore[azubiId] = { ...plan[azubiId] };
   });
 }
-
-// ─── Helpers for ShiftPlanScreen ─────────────────────────────────────────────
 
 function assignmentToShift(azubiId: string, iso: string, a: DayAssignment): Shift {
   const loc: CareLocation | undefined = LOCATIONS.find(l => l.id === a.locationId);
@@ -84,10 +64,6 @@ function assignmentToShift(azubiId: string, iso: string, a: DayAssignment): Shif
   };
 }
 
-/**
- * Returns an array of 7 Shift|null values for the week starting on weekStart.
- * Returns null for any day that has no assignment in the store.
- */
 export function getShiftsForWeek(azubiId: string, weekStart: Date): (Shift | null)[] {
   const plan = sharedPlanStore[azubiId];
   return Array.from({ length: 7 }, (_, i) => {
@@ -99,12 +75,10 @@ export function getShiftsForWeek(azubiId: string, weekStart: Date): (Shift | nul
   });
 }
 
-/** True if the admin has published at least one plan this session. */
 export function hasPlan(azubiId: string): boolean {
   return !!sharedPlanStore[azubiId] && Object.keys(sharedPlanStore[azubiId]).length > 0;
 }
 
-/** Converts the full plan map to a flat Shift[] suitable for Firestore batch-write. */
 export function planToShifts(plan: Record<string, AzubiPlan>): Shift[] {
   const shifts: Shift[] = [];
   Object.entries(plan).forEach(([azubiId, azubiPlan]) => {

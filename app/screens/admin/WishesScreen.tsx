@@ -54,7 +54,6 @@ export default function WishesScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Wunschbuch</Text>
 
-        {/* Summary banner */}
         <View style={styles.banner}>
           <View style={styles.bannerStat}>
             <Text style={styles.bannerNum}>{loading ? '–' : pending}</Text>

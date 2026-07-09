@@ -35,8 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         let profile = await getUserProfile(firebaseUser.uid).catch(() => null);
 
-        // If no Firestore profile exists the invite's Firestore write likely failed.
-        // Log the user out rather than silently giving them the wrong role.
         if (!profile) {
           const { logout } = await import('../services/auth');
           await logout().catch(() => {});

@@ -13,8 +13,6 @@ import { getMonthlyRecords, checkBreakCompliance } from '../services/timeEntries
 import { submitCorrectionRequest, getMyCorrectionRequests } from '../services/corrections';
 import { Shift, DailyTimeRecord, CorrectionRequest, ClockAction } from '../types';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
@@ -39,8 +37,6 @@ const CLOCK_ACTION_LABELS: Record<ClockAction, string> = {
   breakEnd:   'Pausen-Ende fehlt',
   end:        'Ende fehlt',
 };
-
-// ── Component ────────────────────────────────────────────────────────────────
 
 export default function WorkingTimeScreen() {
   const { t } = useLang();
@@ -84,15 +80,11 @@ export default function WorkingTimeScreen() {
 
   useEffect(() => { loadMonth(); }, [loadMonth]);
 
-  // ── Computed ────────────────────────────────────────────────────────────────
-
-  // Total actual clocked net minutes (capped to current month visible days)
   const cutoff = isCurrentMonth ? todayISO : `${year}-${String(month + 2).padStart(2, '0')}-01`;
   const visibleRecords = records.filter(r => r.date < cutoff);
   const totalClockedMins = visibleRecords.reduce((s, r) => s + (r.netMinutes ?? 0), 0);
   const totalClockedHours = totalClockedMins / 60;
 
-  // Shifts as fallback for days without clock entries
   const shiftsByDate = new Map<string, Shift[]>();
   for (const s of shifts) {
     if (s.shiftType === 'free' || s.shiftType === 'school' || !s.startTime || !s.endTime) continue;
@@ -104,17 +96,13 @@ export default function WorkingTimeScreen() {
   const clockedDates = new Set(visibleRecords.map(r => r.date));
   const onlyShiftDates = [...shiftsByDate.keys()].filter(d => !clockedDates.has(d)).sort();
 
-  // All unique dates that have either clock records or shifts
   const allDates = [...new Set([...visibleRecords.map(r => r.date), ...onlyShiftDates])].sort().reverse();
 
   const overtime = Math.max(0, totalClockedHours - contractedMonthly);
 
-  // Pending corrections lookup by date+action
   const corrPendingKey = new Set(
     corrections.filter(c => c.status === 'pending').map(c => `${c.date}_${c.missingAction}`)
   );
-
-  // ── Correction submit ───────────────────────────────────────────────────────
 
   const openCorrModal = (date: string, action: ClockAction) => {
     setCorrModal({ date, action });
@@ -146,14 +134,11 @@ export default function WorkingTimeScreen() {
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>{t.workingTime.title}</Text>
 
-        {/* Month navigation */}
         <View style={styles.monthNav}>
           <TouchableOpacity onPress={() => setViewDate(new Date(year, month - 1, 1))} style={styles.navBtn}>
             <Text style={styles.navArrow}>‹</Text>
@@ -168,7 +153,6 @@ export default function WorkingTimeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Donut chart */}
         <View style={styles.chartCard}>
           <DonutChart worked={totalClockedHours} contracted={contractedMonthly} size={150} />
           <View style={styles.chartMeta}>
@@ -183,7 +167,6 @@ export default function WorkingTimeScreen() {
           </View>
         </View>
 
-        {/* Daily breakdown */}
         {loading ? (
           <ActivityIndicator color={BRAND.primary} style={{ marginTop: 32 }} />
         ) : allDates.length === 0 ? (
@@ -196,7 +179,6 @@ export default function WorkingTimeScreen() {
             const dow   = d.getDay();
             const label = `${t.days.short[dow === 0 ? 6 : dow - 1]}, ${d.getDate()}.${d.getMonth() + 1}.`;
 
-            // Hours to display
             const clockedH  = rec ? (rec.netMinutes ?? 0) / 60 : null;
             const scheduledH = dayShifts.reduce((s, sh) => s + calcShiftHours(sh.startTime, sh.endTime, sh.breakMinutes), 0);
             const displayH  = clockedH !== null ? clockedH : scheduledH;
@@ -221,7 +203,6 @@ export default function WorkingTimeScreen() {
                   </View>
                 </View>
 
-                {/* Clocked rows */}
                 {rec && (
                   <View style={styles.clockedRows}>
                     {rec.startAt      && <ClockRow icon="▶" label="Beginn"    val={fmtTime(rec.startAt)} />}
@@ -234,7 +215,6 @@ export default function WorkingTimeScreen() {
                   </View>
                 )}
 
-                {/* Fallback: shift rows (no clock data) */}
                 {!rec && dayShifts.map((s, i) => {
                   const color = SHIFT_COLORS[s.shiftType as keyof typeof SHIFT_COLORS]?.text ?? BRAND.primary;
                   return (
@@ -246,7 +226,6 @@ export default function WorkingTimeScreen() {
                   );
                 })}
 
-                {/* Missing clock entries — correction buttons */}
                 {dayShifts.length > 0 && rec && !rec.isComplete && (
                   <View style={styles.corrSection}>
                     <Text style={styles.corrTitle}>Stempelung unvollständig</Text>
@@ -270,7 +249,6 @@ export default function WorkingTimeScreen() {
                   </View>
                 )}
 
-                {/* Break compliance warning */}
                 {breakWarn && (
                   <View style={styles.warnRow}>
                     <Text style={styles.warnText}>⚠ {breakWarn}</Text>
@@ -282,7 +260,6 @@ export default function WorkingTimeScreen() {
         )}
       </ScrollView>
 
-      {/* Correction request modal */}
       <Modal visible={!!corrModal} transparent animationType="slide" onRequestClose={() => setCorrModal(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -329,8 +306,6 @@ export default function WorkingTimeScreen() {
   );
 }
 
-// ── Small helpers ────────────────────────────────────────────────────────────
-
 function ClockRow({ icon, label, val, subtle }: { icon: string; label: string; val: string; subtle?: boolean }) {
   return (
     <View style={crStyles.row}>
@@ -340,8 +315,6 @@ function ClockRow({ icon, label, val, subtle }: { icon: string; label: string; v
     </View>
   );
 }
-
-// ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safe:     { flex: 1, backgroundColor: BRAND.background },
@@ -395,7 +368,6 @@ const styles = StyleSheet.create({
   warnRow:  { marginTop: 8, backgroundColor: '#FEF3C7', borderRadius: 8, padding: 10 },
   warnText: { fontSize: 12, fontWeight: '600', color: '#92400E' },
 
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalCard:    { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   modalTitle:   { fontSize: 18, fontWeight: '800', color: BRAND.textPrimary, marginBottom: 4 },

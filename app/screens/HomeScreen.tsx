@@ -105,7 +105,6 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Greeting */}
         <Text style={styles.greeting}>{greet}, {firstName} 👋</Text>
         <Text style={styles.date}>{todayStr}</Text>
 
@@ -113,7 +112,6 @@ export default function HomeScreen() {
           <ActivityIndicator color={BRAND.primary} style={{ marginTop: 40 }} />
         ) : (
           <>
-            {/* Current rotation */}
             <Text style={styles.sectionLabel}>{t.home.currentRotation}</Text>
             {currentRotation ? (
               <View style={[styles.card, styles.rotationCard]}>
@@ -151,7 +149,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* Next shift */}
             <Text style={styles.sectionLabel}>{t.home.nextShift}</Text>
             {nextShift ? (
               <View style={[styles.card, styles.shiftCard]}>
@@ -197,7 +194,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* Training overview */}
             <Text style={styles.sectionLabel}>{t.home.trainingOverview}</Text>
             <View style={styles.overviewGrid}>
               <View style={[styles.overviewCard, { backgroundColor: '#EDE9FE' }]}>
@@ -216,7 +212,6 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Quick actions */}
             <Text style={styles.sectionLabel}>{t.home.quickActions}</Text>
             <View style={styles.quickGrid}>
               <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('availability')} activeOpacity={0.8}>

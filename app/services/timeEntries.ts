@@ -7,13 +7,10 @@ import { TimeEntry, DailyTimeRecord, ClockAction } from '../types';
 
 const COL = 'timeEntries';
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Build a DailyTimeRecord from raw TimeEntry array (sorted by timestamp). */
 export function buildDailyRecord(entries: TimeEntry[]): DailyTimeRecord | null {
   if (!entries.length) return null;
 
@@ -55,17 +52,15 @@ export function buildDailyRecord(entries: TimeEntry[]): DailyTimeRecord | null {
   return rec;
 }
 
-/** Determine which action is next for an azubi today given existing entries. */
 export function nextAction(entries: TimeEntry[]): ClockAction | null {
   const actions = new Set(entries.map(e => e.action));
   if (!actions.has('start'))      return 'start';
   if (!actions.has('breakStart')) return 'breakStart';
   if (!actions.has('breakEnd'))   return 'breakEnd';
   if (!actions.has('end'))        return 'end';
-  return null; // day complete
+  return null;
 }
 
-/** Check German ArbZG break requirement: ≥30 min break if shift > 6h. */
 export function checkBreakCompliance(rec: DailyTimeRecord): string | null {
   if (!rec.isComplete) return null;
   const worked = rec.totalMinutes ?? 0;
@@ -76,12 +71,6 @@ export function checkBreakCompliance(rec: DailyTimeRecord): string | null {
   return null;
 }
 
-// ── Write ────────────────────────────────────────────────────────────────────
-
-/**
- * Record a clock action for an azubi.
- * Document ID: {azubiId}_{date}_{action}
- */
 export async function clockAction(
   azubiId: string,
   azubiName: string,
@@ -103,9 +92,6 @@ export async function clockAction(
   await setDoc(doc(db, COL, id), entry);
 }
 
-// ── Read ─────────────────────────────────────────────────────────────────────
-
-/** Get all time entries for an azubi on a specific date. */
 export async function getEntriesForDay(
   azubiId: string,
   date = todayISO(),
@@ -121,11 +107,10 @@ export async function getEntriesForDay(
   return snap.docs.map(d => d.data() as TimeEntry);
 }
 
-/** Get all entries for an azubi in a given month — returns one DailyTimeRecord per day. */
 export async function getMonthlyRecords(
   azubiId: string,
   year: number,
-  month: number, // 0-indexed (JS Date convention)
+  month: number,
 ): Promise<DailyTimeRecord[]> {
   if (!db) return [];
 
@@ -135,8 +120,6 @@ export async function getMonthlyRecords(
   const toM  = month === 11 ? 0 : month + 1;
   const to   = `${toY}-${pad(toM + 1)}-01`;
 
-  // Single-field equality query — no composite index required.
-  // We filter the date range in JS after fetching.
   const q = query(
     collection(db, COL),
     where('azubiId', '==', azubiId),
@@ -147,7 +130,6 @@ export async function getMonthlyRecords(
     .map(d => d.data() as TimeEntry)
     .filter(e => e.date >= from && e.date < to);
 
-  // Group by date
   const byDate = new Map<string, TimeEntry[]>();
   for (const e of entries) {
     if (!byDate.has(e.date)) byDate.set(e.date, []);
@@ -162,7 +144,6 @@ export async function getMonthlyRecords(
   return records.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Admin: get today's attendance across a facility — all azubis who clocked in. */
 export async function getTodayAttendance(
   facilityId: string,
 ): Promise<DailyTimeRecord[]> {
@@ -193,15 +174,12 @@ export async function getTodayAttendance(
   return records;
 }
 
-/** Lookup an azubi by their numeric PIN stored in Firestore users collection. */
 export async function getAzubiByPin(
   facilityId: string,
   pin: string,
 ): Promise<{ id: string; name: string } | null> {
   if (!db) return null;
 
-  // Query by clockPin only (single field — no composite index required).
-  // Verify the facilityId match in JS.
   const q = query(collection(db, 'users'), where('clockPin', '==', pin));
   const snap = await getDocs(q);
   if (snap.empty) return null;

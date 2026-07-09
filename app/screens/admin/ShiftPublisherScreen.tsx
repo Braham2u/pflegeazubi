@@ -14,7 +14,6 @@ import { getAllAzubis } from '../../services/users';
 import { useAuth } from '../../context/AuthContext';
 import { User } from '../../types';
 
-// Default location when a shift type is first selected
 const DEFAULT_LOCATION: Record<ShiftType, string> = {
   early: 'loc1', late: 'loc2', night: 'loc1',
   school: 'loc4', free: '', external: 'loc3',
@@ -43,8 +42,6 @@ const END_DEFAULTS: Record<ShiftType, string> = {
   early: '14:00', late: '22:00', night: '06:00', school: '16:00', free: '', external: '16:00',
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function getMonday(d: Date) {
   const date = new Date(d);
   const day = date.getDay();
@@ -68,13 +65,10 @@ function initPlan(azubis: { id: string }[], weekStart: Date): Record<string, Azu
   return result;
 }
 
-// Locations shown in step 2 of the modal, filtered by shift type
 function locationsFor(st: ShiftType): CareLocation[] {
   if (st === 'school') return LOCATIONS.filter(l => l.isSchool);
   return LOCATIONS.filter(l => !l.isSchool);
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 type EditState = {
   azubiId: string;
@@ -105,7 +99,6 @@ export default function ShiftPublisherScreen() {
         list.sort((a, b) => a.name.localeCompare(b.name));
         setAzubis(list);
         const base = initPlan(list, getMonday(today));
-        // Load existing shifts from Firestore for this week
         getWeekShiftsForAzubis(list.map(a => a.id), toISO(getMonday(today)))
           .then(shifts => {
             shifts.forEach(s => {
@@ -126,7 +119,6 @@ export default function ShiftPublisherScreen() {
       .finally(() => setLoadingAzubis(false));
   }, []);
 
-  // Reload from Firestore when week changes
   useEffect(() => {
     if (azubis.length === 0) return;
     const base = initPlan(azubis, weekStart);
@@ -202,8 +194,8 @@ export default function ShiftPublisherScreen() {
   }
 
   async function publish() {
-    publishPlan(plan);                       // instant local update for same-session views
-    publishShifts(planToShifts(plan))        // persist to Firestore (fire-and-forget — errors are silent)
+    publishPlan(plan);
+    publishShifts(planToShifts(plan))
       .catch(() => {});
     setToast(true);
     setTimeout(() => setToast(false), 2500);
@@ -219,7 +211,6 @@ export default function ShiftPublisherScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Dienstplan</Text>
 
-        {/* Week navigation */}
         <View style={styles.weekNav}>
           <TouchableOpacity onPress={() => setWeekStart(addDays(weekStart, -7))} style={styles.navBtn}>
             <Text style={styles.navArrow}>‹</Text>
@@ -232,14 +223,12 @@ export default function ShiftPublisherScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Location switcher ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.locSwitcherScroll}
           contentContainerStyle={styles.locSwitcherContent}
         >
-          {/* "Alle" chip — hidden for sub-admins (their location is locked) */}
           {!isSubAdmin && (
             <TouchableOpacity
               style={[styles.locChip, selectedLocId === null && styles.locChipActive]}
@@ -266,7 +255,6 @@ export default function ShiftPublisherScreen() {
           ))}
         </ScrollView>
 
-        {/* Active location label */}
         {selectedLoc && (
           <View style={styles.activeLoc}>
             <Text style={styles.activeLocText}>
@@ -275,7 +263,6 @@ export default function ShiftPublisherScreen() {
           </View>
         )}
 
-        {/* ── Main grid ── */}
         <View style={styles.headerRow}>
           <View style={styles.nameCol} />
           {weekDates.map((d, i) => (
@@ -334,7 +321,6 @@ export default function ShiftPublisherScreen() {
           </View>
         ))}
 
-        {/* ── Location overview (only shown when "Alle" is selected) ── */}
         {selectedLocId === null && <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Standortübersicht</Text>
@@ -342,7 +328,6 @@ export default function ShiftPublisherScreen() {
           </View>
 
           {LOCATIONS.map(loc => {
-          // Only show a location card if at least one azubi is assigned there this week
           const assignedHere = azubis.filter(az =>
             weekDates.some(d => plan[az.id]?.[toISO(d)]?.locationId === loc.id)
           );
@@ -350,7 +335,6 @@ export default function ShiftPublisherScreen() {
 
           return (
             <View key={loc.id} style={styles.locationCard}>
-              {/* Card header */}
               <View style={styles.locationCardHeader}>
                 <Text style={styles.locationPin}>📍</Text>
                 <View>
@@ -359,7 +343,6 @@ export default function ShiftPublisherScreen() {
                 </View>
               </View>
 
-              {/* Mini day header */}
               <View style={styles.miniHeaderRow}>
                 <View style={styles.miniNameCol} />
                 {weekDates.map((d, i) => (
@@ -370,7 +353,6 @@ export default function ShiftPublisherScreen() {
                 ))}
               </View>
 
-              {/* One row per azubi assigned to this location */}
               {(assignedHere as User[]).map(az => (
                 <View key={az.id} style={styles.miniAzubiRow}>
                   <View style={styles.miniNameCol}>
@@ -410,26 +392,22 @@ export default function ShiftPublisherScreen() {
         })}
         </>}
 
-        {/* Publish */}
         <TouchableOpacity style={styles.publishBtn} onPress={publish} activeOpacity={0.8}>
           <Text style={styles.publishBtnText}>Dienstplan veröffentlichen</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── Edit modal (2-step) ── */}
       <Modal visible={!!editing} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
         <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setEditing(null)}>
           <ScrollView
             style={styles.sheetScroll}
             contentContainerStyle={styles.sheet}
             keyboardShouldPersistTaps="handled"
-            // Stop tap-through to overlay
             onStartShouldSetResponder={() => true}
           >
             <View style={styles.sheetHandle} />
 
             {step === 1 && (
-              /* ── Step 1: pick shift type ── */
               <>
                 <Text style={styles.sheetTitle}>
                   {editingAzubi?.name.split(' ')[0]}
@@ -461,7 +439,6 @@ export default function ShiftPublisherScreen() {
             )}
 
             {step === 2 && (
-              /* ── Step 2: pick times ── */
               <>
                 <TouchableOpacity style={styles.backBtn} onPress={() => setEditing(e => e ? { ...e, step: 1, pendingShift: null, pendingStart: '', pendingEnd: '' } : null)} activeOpacity={0.7}>
                   <Text style={styles.backBtnText}>‹ Zurück</Text>
@@ -508,7 +485,6 @@ export default function ShiftPublisherScreen() {
             )}
 
             {step === 3 && (
-              /* ── Step 3: pick location ── */
               <>
                 <TouchableOpacity style={styles.backBtn} onPress={() => setEditing(e => e ? { ...e, step: 2 } : null)} activeOpacity={0.7}>
                   <Text style={styles.backBtnText}>‹ Zurück</Text>
@@ -553,14 +529,11 @@ export default function ShiftPublisherScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BRAND.background },
   scroll: { padding: 16, paddingBottom: 40 },
   title: { fontSize: 24, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 16 },
 
-  // Location switcher
   locSwitcherScroll: { marginBottom: 14 },
   locSwitcherContent: { paddingRight: 8, columnGap: 8, flexDirection: 'row', alignItems: 'center' },
   locChip: {
@@ -579,18 +552,15 @@ const styles = StyleSheet.create({
   },
   activeLocText: { fontSize: 13, fontWeight: '600', color: ADMIN_PURPLE },
 
-  // Dimmed cell (not at selected location)
   shiftCellDimmed: { backgroundColor: '#F3F4F6' },
   shiftCellDimText: { fontSize: 12, color: BRAND.border, fontWeight: '600' },
 
-  // Week nav
   weekNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   navBtn: { padding: 8 },
   navArrow: { fontSize: 28, color: ADMIN_PURPLE, fontWeight: '600' },
   weekLabelBox: { backgroundColor: ADMIN_PURPLE, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   weekLabel: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
-  // Main grid
   headerRow: { flexDirection: 'row', marginBottom: 4 },
   azubiRow: { flexDirection: 'row', marginBottom: 6, alignItems: 'center' },
   nameCol: { width: 58 },
@@ -602,7 +572,6 @@ const styles = StyleSheet.create({
   shiftCellText: { fontSize: 12, fontWeight: '800' },
   shiftCellTime: { fontSize: 8, fontWeight: '600', opacity: 0.8, marginTop: 1 },
 
-  // Location overview section
   sectionHeader: { marginTop: 28, marginBottom: 14 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: BRAND.textPrimary },
   sectionSub: { fontSize: 12, color: BRAND.textSecondary, marginTop: 2 },
@@ -615,7 +584,6 @@ const styles = StyleSheet.create({
   locationFacility: { fontSize: 13, fontWeight: '700', color: BRAND.textPrimary },
   locationUnit: { fontSize: 11, color: BRAND.textSecondary, marginTop: 1 },
 
-  // Mini grid inside location card
   miniHeaderRow: { flexDirection: 'row', marginBottom: 4 },
   miniNameCol: { width: 40 },
   miniDayCol: { flex: 1, alignItems: 'center' },

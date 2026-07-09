@@ -154,7 +154,6 @@ export default function SubAdminListScreen() {
         )}
       </ScrollView>
 
-      {/* ── Invite modal ── */}
       <Modal visible={showInvite} transparent animationType="slide" onRequestClose={() => setShowInvite(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowInvite(false)}>

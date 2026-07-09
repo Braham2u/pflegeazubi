@@ -62,7 +62,6 @@ export default function AttendanceScreen() {
       setRecords(r);
       setCorrections(c);
       setAzubis(azubiList);
-      // Load monthly hours for each azubi
       const hoursMap: Record<string, number> = {};
       await Promise.all(azubiList.map(async az => {
         const recs = await getMonthlyRecords(az.id, now.getFullYear(), now.getMonth());
@@ -136,7 +135,6 @@ export default function AttendanceScreen() {
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={BRAND.primary} />}
         >
-          {/* ── Live tab ── */}
           {tab === 'live' && (
             records.length === 0
               ? <Text style={styles.empty}>Noch niemand hat heute gestempelt.</Text>
@@ -189,7 +187,6 @@ export default function AttendanceScreen() {
                 })
           )}
 
-          {/* ── Hours tab ── */}
           {tab === 'hours' && (
             azubis.length === 0
               ? <Text style={styles.empty}>Keine Azubis gefunden.</Text>
@@ -226,7 +223,6 @@ export default function AttendanceScreen() {
                 })
           )}
 
-          {/* ── Corrections tab ── */}
           {tab === 'corrections' && (
             corrections.length === 0
               ? <Text style={styles.empty}>Keine offenen Korrekturanfragen.</Text>

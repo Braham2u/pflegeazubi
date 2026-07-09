@@ -61,7 +61,6 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-          {/* Language toggle — top right */}
           <View style={styles.langRow}>
             {(['de', 'en'] as const).map(l => (
               <TouchableOpacity key={l} onPress={() => setLang(l)}
@@ -73,7 +72,6 @@ export default function LoginScreen() {
             ))}
           </View>
 
-          {/* Brand block */}
           <View style={styles.brand}>
             <View style={styles.logoBox}>
               <Text style={styles.logoLetter}>P</Text>
@@ -82,7 +80,6 @@ export default function LoginScreen() {
             <Text style={styles.tagline}>{t.login.tagline}</Text>
           </View>
 
-          {/* Form card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Anmelden</Text>
 

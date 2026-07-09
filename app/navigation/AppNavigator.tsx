@@ -100,7 +100,6 @@ const linking = {
   },
 };
 
-// ── Admin bottom tabs ─────────────────────────────────────────────────────────
 function AdminTabs() {
   return (
     <AdminTab.Navigator
@@ -126,7 +125,6 @@ function AdminTabs() {
   );
 }
 
-// ── Admin stack ───────────────────────────────────────────────────────────────
 function AdminNavigator() {
   const { userProfile } = useAuth();
   const facilityId   = userProfile?.primaryFacilityId ?? '';
@@ -150,7 +148,6 @@ function AdminNavigator() {
   );
 }
 
-// Wraps any screen so it sits below the 52 px permanent top bar
 function withTopBar<T extends object>(Screen: React.ComponentType<T>) {
   return function Wrapped(props: T) {
     return (
@@ -161,7 +158,6 @@ function withTopBar<T extends object>(Screen: React.ComponentType<T>) {
   };
 }
 
-// ── Azubi tabs — sidebar replaces the bottom tab bar ─────────────────────────
 function AzubiTabs() {
   return (
     <AzubiTab.Navigator
@@ -178,7 +174,6 @@ function AzubiTabs() {
   );
 }
 
-// ── Azubi stack (tabs + working time as push screen) ─────────────────────────
 function AzubiNavigator() {
   return (
     <AzubiStack.Navigator screenOptions={{ headerShown: false }}>
@@ -190,7 +185,6 @@ function AzubiNavigator() {
   );
 }
 
-// ── Root ──────────────────────────────────────────────────────────────────────
 export default function AppNavigator() {
   const { userProfile, loading } = useAuth();
   const [kioskMode, setKioskMode] = useState(false);

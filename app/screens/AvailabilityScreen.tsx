@@ -208,7 +208,6 @@ export default function AvailabilityScreen() {
 
                 {dw.wishFree && (
                   <View style={styles.reasonArea}>
-                    {/* Reason pills */}
                     <Text style={styles.reasonLabel}>Grund</Text>
                     <View style={styles.reasonRow}>
                       {REASONS.map(r => {
@@ -227,7 +226,6 @@ export default function AvailabilityScreen() {
                       })}
                     </View>
 
-                    {/* Note input */}
                     <Text style={[styles.reasonLabel, { marginTop: 12 }]}>Anmerkung <Text style={{ fontWeight: '400' }}>(optional)</Text></Text>
                     <TextInput
                       style={styles.noteInput}
@@ -330,7 +328,6 @@ const styles = StyleSheet.create({
   wishFreeBtnText: { fontSize: 12, fontWeight: '600', color: BRAND.primary },
   wishFreeBtnTextActive: { color: '#fff' },
 
-  // Reason + note area
   reasonArea: { marginTop: 4 },
   reasonLabel: { fontSize: 12, fontWeight: '700', color: BRAND.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.4 },
   reasonRow: { flexDirection: 'row', columnGap: 8 },

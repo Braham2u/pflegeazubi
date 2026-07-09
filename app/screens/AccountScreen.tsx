@@ -11,8 +11,6 @@ import { useAuth } from '../context/AuthContext';
 import { BRAND, ADMIN_PURPLE, ADMIN_PURPLE_LIGHT } from '../constants/colors';
 import { Lang } from '../i18n';
 
-// ── Small building blocks ─────────────────────────────────────────────────────
-
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={st.infoRow}>
@@ -36,8 +34,6 @@ function SettingsRow({
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
-
 export default function AccountScreen() {
   const { t, lang, setLang } = useLang();
   const { userProfile, logoutAll } = useAuth();
@@ -54,10 +50,8 @@ export default function AccountScreen() {
   const clockPin = (userProfile as any)?.clockPin as string | undefined;
   const facility = (userProfile as any)?.facilityName as string | undefined;
 
-  // "Borbor Jr, Abraham (Azubi)" — surname-first style like the McD app
   const displayName = `${name} (${role === 'admin' ? 'Admin' : 'Azubi'})`;
 
-  // Two initials from name parts
   const initials = name
     .split(/[\s,]+/)
     .filter(Boolean)
@@ -91,7 +85,6 @@ export default function AccountScreen() {
     <SafeAreaView style={st.safe}>
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Profile header ── */}
         <View style={st.header}>
           <View style={[st.avatar, { borderColor: accentColor, backgroundColor: accentLight }]}>
             <Text style={[st.avatarText, { color: accentColor }]}>{initials}</Text>
@@ -99,7 +92,6 @@ export default function AccountScreen() {
           <Text style={st.displayName}>{displayName}</Text>
         </View>
 
-        {/* ── Information section ── */}
         <View style={st.section}>
           <Text style={st.sectionTitle}>Information</Text>
           <InfoRow label="E-Mail-Adresse" value={email} />
@@ -120,7 +112,6 @@ export default function AccountScreen() {
           )}
         </View>
 
-        {/* ── Stempeluhr-PIN button (azubi only) ── */}
         {!isAdmin && clockPin && (
           <TouchableOpacity
             style={[st.pinBtn, { backgroundColor: accentColor }]}
@@ -132,7 +123,6 @@ export default function AccountScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ── Settings section ── */}
         <View style={st.section}>
           <Text style={st.sectionTitle}>Einstellungen</Text>
           {!isAdmin && (
@@ -155,7 +145,6 @@ export default function AccountScreen() {
 
       </ScrollView>
 
-      {/* ── PIN modal ── */}
       <Modal visible={pinVisible} transparent animationType="fade" onRequestClose={() => setPinVisible(false)}>
         <TouchableOpacity style={st.overlay} activeOpacity={1} onPress={() => setPinVisible(false)}>
           <View style={st.pinCard}>
@@ -169,7 +158,6 @@ export default function AccountScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* ── Language picker modal ── */}
       <Modal visible={langModal} transparent animationType="slide" onRequestClose={() => setLangModal(false)}>
         <TouchableOpacity style={st.overlay} activeOpacity={1} onPress={() => setLangModal(false)}>
           <View style={st.langSheet}>
@@ -192,7 +180,6 @@ export default function AccountScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* ── Password reset modal ── */}
       <Modal visible={pwModal} transparent animationType="fade" onRequestClose={() => setPwModal(false)}>
         <View style={st.overlay}>
           <View style={st.confirmCard}>
@@ -235,7 +222,6 @@ export default function AccountScreen() {
         </View>
       </Modal>
 
-      {/* ── Confirm logout modal ── */}
       <Modal visible={confirmLogout} transparent animationType="fade" onRequestClose={() => setConfirmLogout(false)}>
         <View style={st.overlay}>
           <View style={st.confirmCard}>
@@ -258,13 +244,9 @@ export default function AccountScreen() {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-
 const st = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: BRAND.background },
   scroll: { paddingBottom: 48 },
-
-  // Header
   header: {
     backgroundColor: BRAND.surface,
     alignItems: 'center',
@@ -282,20 +264,16 @@ const st = StyleSheet.create({
   },
   avatarText:   { fontSize: 30, fontWeight: '800' },
   displayName:  { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, textAlign: 'center', paddingHorizontal: 24 },
-
-  // Sections
   section:      { backgroundColor: BRAND.surface, marginHorizontal: 0, marginBottom: 12 },
   sectionTitle: {
     fontSize: 16, fontWeight: '700', color: BRAND.textPrimary,
     paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12,
   },
 
-  // Info rows
   infoRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderTopColor: BRAND.border },
   infoLabel: { fontSize: 14, color: BRAND.textSecondary, flex: 1 },
   infoValue: { fontSize: 14, fontWeight: '500', color: BRAND.textPrimary, flex: 1, textAlign: 'right' },
 
-  // Settings rows (like the McD app)
   settingsRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1, borderTopColor: BRAND.border },
   settingsLabel:  { flex: 1, fontSize: 14, color: BRAND.textPrimary },
   settingsDanger: { color: '#DC2626' },
@@ -303,7 +281,6 @@ const st = StyleSheet.create({
   settingsValue:  { fontSize: 14, color: BRAND.textSecondary },
   settingsChevron:{ fontSize: 20, color: BRAND.textSecondary, marginLeft: 4 },
 
-  // PIN button (full-width teal button like McD)
   pinBtn: {
     marginHorizontal: 0,
     marginBottom: 12,
@@ -316,7 +293,6 @@ const st = StyleSheet.create({
   pinBtnIcon: { fontSize: 20, color: '#fff' },
   pinBtnText: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 0.2 },
 
-  // PIN modal
   overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   pinCard:     { backgroundColor: BRAND.surface, borderRadius: 20, padding: 28, marginHorizontal: 32, alignItems: 'center', width: '80%' },
   pinCardTitle:{ fontSize: 16, fontWeight: '700', color: BRAND.textSecondary, marginBottom: 20, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -325,11 +301,9 @@ const st = StyleSheet.create({
   pinCloseBtn: { borderRadius: 12, paddingHorizontal: 32, paddingVertical: 12 },
   pinCloseBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  // Password modal
   pwTitle: { fontSize: 17, fontWeight: '800', color: BRAND.textPrimary, marginBottom: 12 },
   pwBody:  { fontSize: 14, color: BRAND.textSecondary, lineHeight: 22, marginBottom: 4, textAlign: 'center' },
 
-  // Language sheet
   langSheet: {
     backgroundColor: BRAND.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -341,7 +315,6 @@ const st = StyleSheet.create({
   langLabel:      { flex: 1, fontSize: 16, color: BRAND.textPrimary },
   langCheck:      { fontSize: 18, fontWeight: '700' },
 
-  // Logout confirm
   confirmCard:       { backgroundColor: BRAND.surface, borderRadius: 16, padding: 24, marginHorizontal: 32, width: '80%' },
   confirmText:       { fontSize: 17, fontWeight: '600', color: BRAND.textPrimary, textAlign: 'center', marginBottom: 20 },
   confirmBtns:       { flexDirection: 'row', columnGap: 10 },

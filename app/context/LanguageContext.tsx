@@ -19,7 +19,6 @@ const LanguageContext = createContext<LangContextValue>({
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>('de');
 
-  // Load saved language on mount
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(saved => {
       if (saved === 'de' || saved === 'en') setLangState(saved);

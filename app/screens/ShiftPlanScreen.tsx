@@ -78,7 +78,6 @@ export default function ShiftPlanScreen() {
 
     setLoading(true);
     try {
-      // 1 — try Firestore first
       const weekStartISO = toISO(weekStart);
       const firestoreShifts = await getShiftsFirestore(azubiId, weekStartISO);
       if (firestoreShifts.length > 0) {
@@ -86,12 +85,10 @@ export default function ShiftPlanScreen() {
         setWeekShifts(mapped);
         return;
       }
-      // 2 — fall back to in-memory store (same session, plan just published)
       if (hasPlan(azubiId)) {
         setWeekShifts(getShiftsLocal(azubiId, weekStart));
         return;
       }
-      // 3 — nothing published yet
       setWeekShifts(Array(7).fill(null));
     } catch {
       setWeekShifts(Array(7).fill(null));

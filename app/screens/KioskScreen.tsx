@@ -64,7 +64,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
   const timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Auto-reset countdown on success screen
   useEffect(() => {
     if (screen !== 'success') return;
     countRef.current = AUTO_CLOSE_SECS;
@@ -130,7 +129,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     }
   }
 
-  // ── PIN Screen ──────────────────────────────────────────────────────────────
   if (screen === 'pin') {
     return (
       <SafeAreaView style={styles.root}>
@@ -180,7 +178,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     );
   }
 
-  // ── Action Screen ───────────────────────────────────────────────────────────
   if (screen === 'action' && azubi) {
     const status = currentStatusLabel(entries);
     const rec    = buildDailyRecord(entries);
@@ -190,7 +187,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
         <StatusBar barStyle="light-content" backgroundColor="#111827" />
         <ScrollView contentContainerStyle={styles.actionScroll}>
 
-          {/* Header */}
           <View style={styles.actionHeader}>
             <Text style={styles.actionClock}>{timeStr}</Text>
             <View style={styles.actionUserRow}>
@@ -206,7 +202,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
             </View>
           </View>
 
-          {/* Time log */}
           {rec && (rec.startAt || rec.breakStartAt || rec.endAt) && (
             <View style={styles.logTable}>
               <View style={styles.logRow}>
@@ -240,7 +235,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
             </View>
           )}
 
-          {/* Action buttons — always all visible */}
           <Text style={styles.actionPrompt}>Was möchtest du tun?</Text>
           <View style={styles.actionGrid}>
             {(Object.keys(ACTION_CONFIG) as ClockAction[]).map(action => {
@@ -276,7 +270,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     );
   }
 
-  // ── Preview / Confirmation Screen ───────────────────────────────────────────
   if (screen === 'preview' && pending && azubi) {
     const cfg = ACTION_CONFIG[pending];
     return (
@@ -307,7 +300,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
     );
   }
 
-  // ── Success Screen ──────────────────────────────────────────────────────────
   if (screen === 'success' && lastAction) {
     const cfg = ACTION_CONFIG[lastAction];
     const rec = buildDailyRecord(entries);
@@ -378,7 +370,6 @@ export default function KioskScreen({ facilityId, facilityName }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#111827' },
 
-  // PIN screen
   pinHeader: { alignItems: 'center', paddingTop: 40, paddingBottom: 24 },
   pinFacility: { fontSize: 12, fontWeight: '700', color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' },
   pinClock: { fontSize: 56, fontWeight: '700', color: '#fff', lineHeight: 64, marginTop: 8 },
@@ -398,7 +389,6 @@ const styles = StyleSheet.create({
   confirmPinBtn: { marginTop: 20, width: '100%', backgroundColor: '#2563EB', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   confirmPinBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  // Action screen
   actionScroll: { paddingBottom: 40 },
   actionHeader: { backgroundColor: '#1F2937', paddingTop: 24, paddingBottom: 20, paddingHorizontal: 20, alignItems: 'center' },
   actionClock: { fontSize: 42, fontWeight: '700', color: '#fff' },
@@ -418,7 +408,6 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 15, color: '#6B7280', fontWeight: '600' },
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
 
-  // Preview screen
   previewWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   previewIcon: { fontSize: 64, color: '#fff', marginBottom: 12 },
   previewLabel: { fontSize: 28, fontWeight: '800', color: '#fff', textAlign: 'center' },
@@ -429,7 +418,6 @@ const styles = StyleSheet.create({
   previewBackBtn: { paddingVertical: 14 },
   previewBackText: { fontSize: 15, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
 
-  // Success screen
   successWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   successIconBox: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   successIcon: { fontSize: 36, color: '#fff' },
@@ -440,13 +428,11 @@ const styles = StyleSheet.create({
   closeBtn: { backgroundColor: '#374151', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40 },
   closeBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  // Shared: log table
   logTable: { backgroundColor: '#fff', marginHorizontal: 16, marginTop: 12, borderRadius: 12, overflow: 'hidden', width: '90%' },
   logRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   logHeader: { flex: 1, fontSize: 12, fontWeight: '700', color: '#6B7280', padding: 10, backgroundColor: '#F9FAFB' },
   logCell: { flex: 1, fontSize: 14, fontWeight: '600', color: BRAND.textPrimary, padding: 10 },
 
-  // Badge
   kioskBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, columnGap: 6 },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
   kioskBadgeText: { fontSize: 12, color: '#6B7280', fontWeight: '600' },

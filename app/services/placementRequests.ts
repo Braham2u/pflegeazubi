@@ -14,7 +14,6 @@ function locationsAsFacilities(): Facility[] {
 }
 
 export async function getAllFacilities(): Promise<Facility[]> {
-  // Try a dedicated Firestore collection first; fall back to the canonical LOCATIONS list.
   if (!db) return locationsAsFacilities();
   const snap = await getDocs(collection(db, 'facilities'));
   if (!snap.empty) return snap.docs.map(d => ({ id: d.id, ...d.data() } as Facility));

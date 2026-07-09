@@ -145,7 +145,6 @@ export default function AllRequestsScreen() {
         )}
       </ScrollView>
 
-      {/* ── Respond bottom sheet ── */}
       <Modal
         visible={!!selected}
         transparent

@@ -16,7 +16,6 @@ export async function getShiftsForWeek(azubiId: string, weekStart: string): Prom
   end.setDate(end.getDate() + 6);
   const weekEnd = end.toISOString().split('T')[0];
 
-  // Query only by azubiId (no composite index needed), filter dates client-side.
   const q = query(collection(db, 'shifts'), where('azubiId', '==', azubiId));
   const snap = await getDocs(q);
   return snap.docs
@@ -35,7 +34,6 @@ export async function getShiftsForMonth(
   const lastDay = new Date(year, month + 1, 0).getDate();
   const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-  // Query only by azubiId (no composite index needed), filter dates client-side.
   const q = query(collection(db, 'shifts'), where('azubiId', '==', azubiId));
   const snap = await getDocs(q);
   return snap.docs
@@ -44,10 +42,6 @@ export async function getShiftsForMonth(
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/**
- * Batch-write a published shift plan to Firestore.
- * Uses deterministic IDs `{azubiId}_{date}` so re-publishing overwrites.
- */
 export async function publishShifts(shifts: Shift[]): Promise<void> {
   if (!db) throw new Error('Firebase not configured');
   const batch = writeBatch(db);

@@ -63,7 +63,6 @@ export default function TraineeListScreen() {
       list.sort((a, b) => a.name.localeCompare(b.name));
       setAzubis(list);
     } catch {
-      // Firestore index not yet created — silent fail, list stays empty
     } finally {
       setLoading(false);
     }

@@ -35,12 +35,6 @@ export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
 
-/**
- * Create a new Azubi account using the Firebase Auth REST API.
- * This approach does NOT require a secondary Firebase app and does NOT
- * sign out the current admin. The Firestore profile is then written using
- * the admin's existing db connection.
- */
 export async function createAzubiAccount(
   email: string,
   password: string,
@@ -49,7 +43,6 @@ export async function createAzubiAccount(
   const apiKey = firebaseConfig.apiKey;
   if (!apiKey) throw new Error('Firebase not configured');
 
-  // Step 1: Create the Auth user via REST API
   const res = await fetch(
     'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + apiKey,
     {
@@ -72,7 +65,6 @@ export async function createAzubiAccount(
 
   const uid: string = data.localId;
 
-  // Step 2: Write Firestore profile using the admin's db connection
   const { createUserProfile } = await import('./users');
   await createUserProfile(uid, { ...profile, email });
 

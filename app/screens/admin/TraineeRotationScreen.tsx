@@ -155,7 +155,6 @@ export default function TraineeRotationScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
         <View style={styles.titleRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
             <Text style={styles.backBtnText}>‹ Zurück</Text>
@@ -226,7 +225,6 @@ export default function TraineeRotationScreen() {
         )}
       </ScrollView>
 
-      {/* ── Add modal ── */}
       <Modal visible={showAdd} transparent animationType="slide" onRequestClose={() => setShowAdd(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowAdd(false)}>

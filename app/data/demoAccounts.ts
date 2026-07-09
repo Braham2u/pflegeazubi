@@ -5,8 +5,6 @@ export interface DemoAccount {
   user: User;
 }
 
-// Local demo "database" — keyed by email (lowercase)
-// These work in the login form without any Firebase connection
 export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
   'admin@pflegeazubi.de': {
     password: 'Admin123',

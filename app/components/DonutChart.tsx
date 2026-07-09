@@ -9,7 +9,6 @@ interface Props {
   size?: number;
 }
 
-// Pure React Native donut — no SVG dependency, works on web + native
 export default function DonutChart({ worked, contracted, color = BRAND.primary, size = 150 }: Props) {
   const pct = contracted > 0 ? Math.min(worked / contracted, 1) : 0;
   const strokeW = 14;
@@ -17,16 +16,13 @@ export default function DonutChart({ worked, contracted, color = BRAND.primary, 
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Track ring */}
       <View style={[styles.ring, {
         width: size, height: size, borderRadius: size / 2,
         borderWidth: strokeW, borderColor: '#E5E7EB',
         position: 'absolute',
       }]} />
-      {/* Progress arc — simulate with two half-circle clips */}
       {pct > 0 && (
         <View style={{ width: size, height: size, position: 'absolute', borderRadius: size / 2, overflow: 'hidden' }}>
-          {/* Left half */}
           <View style={{ position: 'absolute', width: size / 2, height: size, left: 0, overflow: 'hidden' }}>
             <View style={[{
               width: size, height: size, borderRadius: size / 2,
@@ -37,7 +33,6 @@ export default function DonutChart({ worked, contracted, color = BRAND.primary, 
               transform: [{ rotate: `${Math.max(0, (pct - 0.5) * 360)}deg` }],
             }]} />
           </View>
-          {/* Right half */}
           <View style={{ position: 'absolute', width: size / 2, height: size, right: 0, overflow: 'hidden' }}>
             <View style={[{
               width: size, height: size, borderRadius: size / 2,
@@ -50,7 +45,6 @@ export default function DonutChart({ worked, contracted, color = BRAND.primary, 
           </View>
         </View>
       )}
-      {/* Center label */}
       <View style={{ width: inner, height: inner, borderRadius: inner / 2, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: size * 0.14, fontWeight: '800', color: '#111827' }}>
           {Math.round(worked)}h

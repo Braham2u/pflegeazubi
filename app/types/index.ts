@@ -9,18 +9,18 @@ export interface User {
   ausbildungYear?: 1 | 2 | 3;
   contractedHoursPerWeek: number;
   language: 'de' | 'en' | 'ar' | 'tl' | 'hi';
-  dateOfBirth?: string;   // DD.MM.YYYY
-  startDate?: string;     // DD.MM.YYYY — training start date
+  dateOfBirth?: string;
+  startDate?: string;
   phone?: string;
 }
 
 export interface Shift {
   id: string;
   azubiId: string;
-  date: string; // ISO: 2026-04-09
+  date: string;
   shiftType: ShiftType;
-  startTime: string; // 06:00
-  endTime: string;   // 14:00
+  startTime: string;
+  endTime: string;
   breakMinutes: number;
   facilityId: string | null;
   facilityName: string;
@@ -44,8 +44,6 @@ export interface AvailabilityWish {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-// ── Time Clock ──────────────────────────────────────────────────────────────
-
 export type ClockAction = 'start' | 'breakStart' | 'breakEnd' | 'end';
 
 export interface TimeEntry {
@@ -53,9 +51,9 @@ export interface TimeEntry {
   azubiId: string;
   azubiName: string;
   facilityId: string;
-  date: string;           // YYYY-MM-DD
+  date: string;
   action: ClockAction;
-  timestamp: string;      // ISO datetime
+  timestamp: string;
   shiftId?: string;
   corrected?: boolean;
   correctedBy?: string;
@@ -68,18 +66,16 @@ export interface DailyTimeRecord {
   azubiName: string;
   facilityId: string;
   entries: TimeEntry[];
-  startAt?: string;       // ISO datetime
+  startAt?: string;
   breakStartAt?: string;
   breakEndAt?: string;
   endAt?: string;
-  totalMinutes?: number;  // start → end
-  breakMinutes?: number;  // breakStart → breakEnd
-  netMinutes?: number;    // totalMinutes − breakMinutes
-  isComplete?: boolean;   // has both start and end
+  totalMinutes?: number;
+  breakMinutes?: number;
+  netMinutes?: number;
+  isComplete?: boolean;
   overtimeMinutes?: number;
 }
-
-// ── Rotation Plan ───────────────────────────────────────────────────────────
 
 export type FacilityType = 'hospital' | 'careHome' | 'ambulatory' | 'school' | 'other';
 
@@ -99,8 +95,8 @@ export interface PlacementRequest {
   traineeName: string;
   facilityId: string;
   facilityName: string;
-  startMonth: string;   // 'YYYY-MM'
-  endMonth: string;     // 'YYYY-MM'
+  startMonth: string;
+  endMonth: string;
   status: PlacementRequestStatus;
   note?: string;
   createdAt: number;
@@ -114,21 +110,19 @@ export interface Rotation {
   facilityName: string;
   unitName?: string;
   facilityType: FacilityType;
-  startDate: string;  // YYYY-MM-DD
-  endDate: string;    // YYYY-MM-DD
+  startDate: string;
+  endDate: string;
   notes?: string;
 }
-
-// ── Correction Requests ─────────────────────────────────────────────────────
 
 export interface CorrectionRequest {
   id: string;
   azubiId: string;
   azubiName: string;
   facilityId: string;
-  date: string;           // YYYY-MM-DD
+  date: string;
   missingAction: ClockAction;
-  proposedTime: string;   // HH:MM
+  proposedTime: string;
   note: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;

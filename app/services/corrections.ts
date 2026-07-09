@@ -7,7 +7,6 @@ import { CorrectionRequest, ClockAction } from '../types';
 
 const COL = 'correctionRequests';
 
-/** Azubi submits a correction request for a missed clock action. */
 export async function submitCorrectionRequest(
   azubiId: string,
   azubiName: string,
@@ -33,7 +32,6 @@ export async function submitCorrectionRequest(
   return ref.id;
 }
 
-/** Azubi: get own correction requests. */
 export async function getMyCorrectionRequests(
   azubiId: string,
 ): Promise<CorrectionRequest[]> {
@@ -48,7 +46,6 @@ export async function getMyCorrectionRequests(
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as CorrectionRequest));
 }
 
-/** Admin: get all pending correction requests for a facility. */
 export async function getPendingCorrections(
   facilityId: string,
 ): Promise<CorrectionRequest[]> {
@@ -64,7 +61,6 @@ export async function getPendingCorrections(
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as CorrectionRequest));
 }
 
-/** Admin: approve or reject a correction request. */
 export async function respondToCorrection(
   correctionId: string,
   status: 'approved' | 'rejected',
@@ -79,7 +75,6 @@ export async function respondToCorrection(
   });
 }
 
-/** Count pending corrections for a facility (admin dashboard metric). */
 export async function countPendingCorrections(facilityId: string): Promise<number> {
   const items = await getPendingCorrections(facilityId);
   return items.length;
